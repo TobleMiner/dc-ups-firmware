@@ -4,6 +4,7 @@
 #include <esp_log.h>
 #include <freertos/FreeRTOS.h>
 
+#include "bq24715_charger.h"
 #include "gpio_hc595.h"
 #include "i2c_bus.h"
 #include "lm75.h"
@@ -40,11 +41,14 @@ static const spi_bus_config_t hc595_spi_bus_cfg = {
 };
 
 static gpio_hc595_t hc595;
+
 static i2c_bus_t i2c_bus;
 static i2c_bus_t smbus_bus;
 
 static lm75_t lm75[3];
 static unsigned int lm75_address[3] = { 0x48, 0x49, 0x4a };
+
+static bq24715_t bq24715;
 
 void app_main() {
 	ESP_ERROR_CHECK(spi_bus_initialize(SPI_HC595, &hc595_spi_bus_cfg, SPI_DMA_DISABLED));
@@ -65,6 +69,10 @@ void app_main() {
 			ESP_LOGI(TAG, "Sensor %d: %.2f°C", i, (float)temp_mdegc / 1000.0f);
 		}
 	}
+
+	ESP_ERROR_CHECK(bq24715_init(&bq24715, &smbus_bus));
+	ESP_ERROR_CHECK(bq24715_set_max_charge_voltage(&bq24715, 8400));
+	ESP_ERROR_CHECK(bq24715_set_charge_current(&bq24715, 256));
 
 	unsigned int toggle_gpios[] = { GPIO_HC595_USB_OUT_OFF, GPIO_HC595_DC_OUT1_OFF, GPIO_HC595_DC_OUT2_OFF, GPIO_HC595_DC_OUT3_OFF, GPIO_HC595_DC_OUT_OFF };
 	unsigned int gpio_idx = 0;
