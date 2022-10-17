@@ -20,6 +20,7 @@ esp_err_t i2c_bus_init(i2c_bus_t* bus, i2c_port_t i2c_port, unsigned int gpio_sd
 	if(err) {
 		return err;
 	}
+	i2c_set_timeout(i2c_port, 0xFFFFF);
 	err = i2c_driver_install(i2c_port, I2C_MODE_MASTER, 0, 0, 0);
 	if(err) {
 		return err;
