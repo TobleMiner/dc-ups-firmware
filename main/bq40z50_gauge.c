@@ -26,11 +26,20 @@
 
 static const char *TAG = "BQ40Z50 GAUGE";
 
-static esp_err_t read_word(bq40z50_t *gauge, uint8_t cmd, uint16_t *res) {
+static esp_err_t read_uword(bq40z50_t *gauge, uint8_t cmd, unsigned int *res) {
 	uint8_t word[2];
 	esp_err_t err = smbus_read_word(gauge->bus, gauge->address, cmd, word);
 	if (!err) {
-		*res = (uint16_t)word[0] | (uint16_t)word[1] << 8;
+		*res = (unsigned int)word[0] | (unsigned int)word[1] << 8;
+	}
+	return err;
+}
+
+static esp_err_t read_sword(bq40z50_t *gauge, uint8_t cmd, int *res) {
+	uint8_t word[2];
+	esp_err_t err = smbus_read_word(gauge->bus, gauge->address, cmd, word);
+	if (!err) {
+		*res = (int16_t)((int16_t)word[0] | (int16_t)word[1] << 8);
 	}
 	return err;
 }
@@ -45,10 +54,12 @@ static esp_err_t read_mac_word(bq40z50_t *gauge, uint16_t cmd, uint16_t *res) {
 	uint8_t word[2] = { cmd & 0xff, cmd >> 8 };
 	esp_err_t err = smbus_write_block(gauge->bus, gauge->address, CMD_MANUFACTURER_ACCESS, word, sizeof(word));
 	if (err) {
+		ESP_LOGE(TAG, "Failed to write MAC command: 0x%x(%d)", err, err);
 		return err;
 	}
 	err = smbus_read_block(gauge->bus, gauge->address, CMD_MANUFACTURER_ACCESS, response, sizeof(response), NULL);
 	if (err) {
+		ESP_LOGE(TAG, "Failed to read MAC command response: 0x%x(%d)", err, err);
 		return err;
 	}
 	uint16_t cmd_readback = (uint16_t)response[0] | (uint16_t)response[1] << 8;
@@ -79,4 +90,27 @@ esp_err_t bq40z50_init(bq40z50_t *gauge, i2c_bus_t *bus, int address) {
 	}
 
 	return ESP_OK;
+}
+
+esp_err_t bq40z50_get_battery_voltage_mv(bq40z50_t *gauge, unsigned int *res) {
+	return read_uword(gauge, CMD_VOLTAGE, res);
+}
+
+esp_err_t bq40z50_get_cell_voltage_mv(bq40z50_t *gauge, bq40z50_cell_t cell, unsigned int *res) {
+	switch (cell) {
+	case BQ40Z50_CELL_1:
+		return read_uword(gauge, CMD_CELL_VOLTAGE1, res);
+	case BQ40Z50_CELL_2:
+		return read_uword(gauge, CMD_CELL_VOLTAGE2, res);
+	default:
+		return ESP_ERR_INVALID_ARG;
+	}
+}
+
+esp_err_t bq40z50_get_state_of_charge_percent(bq40z50_t *gauge, bq40z50_cell_t cell, unsigned int *res) {
+	return read_uword(gauge, CMD_STATE_OF_CHARGE, res);
+}
+
+esp_err_t bq40z50_get_current_ma(bq40z50_t *gauge, bq40z50_cell_t cell, int *res) {
+	return read_sword(gauge, CMD_CURRENT, res);
 }
