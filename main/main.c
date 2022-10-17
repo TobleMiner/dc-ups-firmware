@@ -8,6 +8,7 @@
 #include "bq40z50_gauge.h"
 #include "gpio_hc595.h"
 #include "i2c_bus.h"
+#include "ina219.h"
 #include "lm75.h"
 #include "util.h"
 
@@ -52,6 +53,9 @@ static unsigned int lm75_address[3] = { 0x48, 0x49, 0x4a };
 static bq24715_t bq24715;
 static bq40z50_t bq40z50;
 
+static ina219_t ina[4];
+static unsigned int ina_address[4] = { 0x40, 0x41, 0x42, 0x43 };
+
 void app_main() {
 	ESP_ERROR_CHECK(spi_bus_initialize(SPI_HC595, &hc595_spi_bus_cfg, SPI_DMA_DISABLED));
 	ESP_ERROR_CHECK(gpio_hc595_init(&hc595, SPI_HC595, GPIO_HC595_LATCH));
@@ -78,15 +82,39 @@ void app_main() {
 
 	ESP_ERROR_CHECK(bq40z50_init(&bq40z50, &smbus_bus, -1));
 
+	for (int i = 0; i < ARRAY_SIZE(ina); i++) {
+		ESP_ERROR_CHECK(ina219_init(&ina[i], &smbus_bus, ina_address[i], 10));
+		ESP_ERROR_CHECK(ina219_set_shunt_voltage_range(&ina[i], INA219_PGA_CURRENT_GAIN_80MV));
+		unsigned int bus_voltage_mv;
+		long current_ua, shunt_voltage_uv, power_uw;
+		ESP_ERROR_CHECK(ina219_read_shunt_voltage_uv(&ina[i], &shunt_voltage_uv));
+		ESP_ERROR_CHECK(ina219_read_bus_voltage_mv(&ina[i], &bus_voltage_mv));
+		ESP_ERROR_CHECK(ina219_read_current_ua(&ina[i], &current_ua));
+		ESP_ERROR_CHECK(ina219_read_power_uw(&ina[i], &power_uw));
+		ESP_LOGI(TAG, "INA %d: %umV @ %ldmA (Ushunt: %lduV, %ldmW)", i, bus_voltage_mv, current_ua / 1000L, shunt_voltage_uv, power_uw / 1000L);
+	}
+
 	unsigned int toggle_gpios[] = { GPIO_HC595_USB_OUT_OFF, GPIO_HC595_DC_OUT1_OFF, GPIO_HC595_DC_OUT2_OFF, GPIO_HC595_DC_OUT3_OFF, GPIO_HC595_DC_OUT_OFF };
 	unsigned int gpio_idx = 0;
 	while (1) {
 		ESP_LOGI(TAG, "Toggling GPIO %u", gpio_idx);
 		unsigned int gpio = toggle_gpios[gpio_idx++];
 		gpio_idx %= ARRAY_SIZE(toggle_gpios);
-		ESP_ERROR_CHECK(gpio_hc595_set_level(&hc595, gpio, 1));
+//		ESP_ERROR_CHECK(gpio_hc595_set_level(&hc595, gpio, 1));
 		vTaskDelay(pdMS_TO_TICKS(1000));
 		ESP_ERROR_CHECK(gpio_hc595_set_level(&hc595, gpio, 0));
 		vTaskDelay(pdMS_TO_TICKS(1000));
+
+		unsigned int cell_voltage1, cell_voltage2;
+		int current_ma;
+		ESP_ERROR_CHECK(bq40z50_get_cell_voltage_mv(&bq40z50, BQ40Z50_CELL_1, &cell_voltage1));
+		ESP_ERROR_CHECK(bq40z50_get_cell_voltage_mv(&bq40z50, BQ40Z50_CELL_2, &cell_voltage2));
+		ESP_LOGI(TAG, "Cell voltages: %umV, %umV", cell_voltage1, cell_voltage2);
+		ESP_ERROR_CHECK(bq40z50_get_current_ma(&bq40z50, BQ40Z50_CELL_2, &current_ma));
+		if (current_ma > 0) {
+			ESP_LOGI(TAG, "Charging at %dmA", current_ma);
+		} else {
+			ESP_LOGI(TAG, "Discharging at %dmA", -current_ma);
+		}
 	}
 }
