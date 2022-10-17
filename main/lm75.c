@@ -20,10 +20,10 @@ int32_t lm75_read_temperature_mdegc(lm75_t *lm75) {
 	if (err) {
 		return -1;
 	}
-	uint16_t temp_0_5C =
+	uint16_t temp_0_125C =
 		(((int16_t)temp_data[0]) << 8) |
                 temp_data[1];
-	temp_0_5C &= ~((int16_t)0x7f);
-        temp_0_5C /= 128;
-	return (int32_t)temp_0_5C * 500;
+	temp_0_125C &= ~((int16_t)0x1f);
+        temp_0_125C /= 32;
+	return (int32_t)temp_0_125C * 125;
 }
