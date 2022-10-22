@@ -112,7 +112,7 @@ esp_err_t bq40z50_get_cell_voltage_mv(bq40z50_t *gauge, bq40z50_cell_t cell, uns
 	}
 }
 
-esp_err_t bq40z50_get_state_of_charge_percent(bq40z50_t *gauge, bq40z50_cell_t cell, unsigned int *res) {
+esp_err_t bq40z50_get_state_of_charge_percent(bq40z50_t *gauge, unsigned int *res) {
 	return read_uword(gauge, CMD_STATE_OF_CHARGE, res);
 }
 
