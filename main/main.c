@@ -10,6 +10,7 @@
 #include "i2c_bus.h"
 #include "ina219.h"
 #include "lm75.h"
+#include "ssd1306_oled.h"
 #include "util.h"
 
 #define GPIO_HC595_DC_OUT3_OFF	1
@@ -31,6 +32,8 @@
 #define I2C_I2C			I2C_NUM_0
 #define GPIO_I2C_DATA		15
 #define GPIO_I2C_CLK		13
+
+#define GPIO_OLED_RESET		23
 
 static const char *TAG = "main";
 
@@ -56,6 +59,8 @@ static bq40z50_t bq40z50;
 static ina219_t ina[4];
 static unsigned int ina_address[4] = { 0x40, 0x41, 0x42, 0x43 };
 
+static ssd1306_oled_t oled;
+
 void app_main() {
 	ESP_ERROR_CHECK(spi_bus_initialize(SPI_HC595, &hc595_spi_bus_cfg, SPI_DMA_DISABLED));
 	ESP_ERROR_CHECK(gpio_hc595_init(&hc595, SPI_HC595, GPIO_HC595_LATCH));
@@ -75,6 +80,8 @@ void app_main() {
 			ESP_LOGI(TAG, "Sensor %d: %.2f°C", i, (float)temp_mdegc / 1000.0f);
 		}
 	}
+
+	ESP_ERROR_CHECK(ssd1306_oled_init(&oled, &i2c_bus, 0x3c, GPIO_OLED_RESET));
 
 	ESP_ERROR_CHECK(bq24715_init(&bq24715, &smbus_bus));
 	ESP_ERROR_CHECK(bq24715_set_max_charge_voltage(&bq24715, 8400));
