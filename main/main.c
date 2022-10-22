@@ -54,11 +54,20 @@ static gpio_hc595_t hc595;
 static i2c_bus_t i2c_bus;
 static i2c_bus_t smbus_bus;
 
+#define LM75_CHARGER	0
+#define LM75_DC_OUT	1
+#define LM75_USB_OUT	2
+
 static lm75_t lm75[3];
 static unsigned int lm75_address[3] = { 0x48, 0x49, 0x4a };
 
 static bq24715_t bq24715;
 static bq40z50_t bq40z50;
+
+#define INA_DC_IN		0
+#define INA_DC_OUT_PASSTHROUGH	1
+#define INA_DC_OUT_STEP_UP	2
+#define INA_USB_OUT		3
 
 static ina219_t ina[4];
 static unsigned int ina_address[4] = { 0x40, 0x41, 0x42, 0x43 };
@@ -96,10 +105,6 @@ void app_main() {
 
 	ESP_ERROR_CHECK(ssd1306_oled_init(&oled, &i2c_bus, 0x3c, GPIO_OLED_RESET));
 	fb_init(&fb);
-	font_3x5_render_string("Hello World", &fb, 0, 0);
-	font_3x5_render_string("Hello World", &fb, 0, 6);
-	font_3x5_render_string("Hello World", &fb, 0, 12);
-	ESP_ERROR_CHECK(ssd1306_oled_render_fb(&oled, &fb));
 
 	ESP_ERROR_CHECK(bq24715_init(&bq24715, &smbus_bus));
 	ESP_ERROR_CHECK(bq24715_set_max_charge_voltage(&bq24715, 8400));
@@ -134,12 +139,14 @@ void app_main() {
 //		ESP_ERROR_CHECK(gpio_hc595_set_level(&hc595, gpio, 1));
 //		vTaskDelay(pdMS_TO_TICKS(1000));
 //		ESP_ERROR_CHECK(gpio_hc595_set_level(&hc595, gpio, 0));
-		vTaskDelay(pdMS_TO_TICKS(1000));
+//		vTaskDelay(pdMS_TO_TICKS(1000));
 
 		unsigned int cell_voltage1, cell_voltage2;
+		unsigned int state_of_charge;
 		int current_ma;
 		ESP_ERROR_CHECK(bq40z50_get_cell_voltage_mv(&bq40z50, BQ40Z50_CELL_1, &cell_voltage1));
 		ESP_ERROR_CHECK(bq40z50_get_cell_voltage_mv(&bq40z50, BQ40Z50_CELL_2, &cell_voltage2));
+		ESP_ERROR_CHECK(bq40z50_get_state_of_charge_percent(&bq40z50, &state_of_charge));
 		ESP_LOGI(TAG, "Cell voltages: %umV, %umV", cell_voltage1, cell_voltage2);
 		ESP_ERROR_CHECK(bq40z50_get_current_ma(&bq40z50, BQ40Z50_CELL_2, &current_ma));
 		if (current_ma > 0) {
@@ -147,7 +154,49 @@ void app_main() {
 		} else {
 			ESP_LOGI(TAG, "Discharging at %dmA", -current_ma);
 		}
+		char display_str[16 + 1];
 
+		// Battery stats
+		snprintf(display_str, sizeof(display_str), "SOC: %03u%%", state_of_charge);
+		font_3x5_render_string(display_str, &fb, 0, 0);
+		font_3x5_render_string("Cell voltages", &fb, 6, 6);
+		snprintf(display_str, sizeof(display_str), "%04umV  %04umV", cell_voltage1, cell_voltage2);
+		font_3x5_render_string(display_str, &fb, 3, 12);
+
+		// Output stats
+		long power_passthrough_uw;
+		long power_step_up_uw;
+		long power_usb_uw;
+		ESP_ERROR_CHECK(ina219_read_power_uw(&ina[INA_DC_OUT_PASSTHROUGH], &power_passthrough_uw));
+		ESP_ERROR_CHECK(ina219_read_power_uw(&ina[INA_DC_OUT_STEP_UP], &power_step_up_uw));
+		ESP_ERROR_CHECK(ina219_read_power_uw(&ina[INA_USB_OUT], &power_usb_uw));
+		long power_total_uw = power_passthrough_uw + power_step_up_uw + power_usb_uw;
+		snprintf(display_str, sizeof(display_str), "Power: %02.02fW", (float)power_total_uw / 1000000.0f);
+		font_3x5_render_string(display_str, &fb, 3, 18);
+
+		// System status
+		const char *system_status = "   IDLE    ";
+		if (current_ma > 0) {
+			system_status = " CHARGING  ";
+		} else if (current_ma < 0) {
+			system_status = "DISCHARGING";
+		}
+		font_3x5_render_string(system_status, &fb, 9, 24);
+		font_3x5_render_string("Battery current", &fb, 3, 30);
+		snprintf(display_str, sizeof(display_str), "%04dmA ", current_ma);
+		font_3x5_render_string(display_str, &fb, 17, 36);
+		
+		int32_t temp_charger_mdegc = lm75_read_temperature_mdegc(&lm75[LM75_CHARGER]);
+		int32_t temp_dc_out_mdegc = lm75_read_temperature_mdegc(&lm75[LM75_DC_OUT]);
+		int32_t temp_usb_out_mdegc = lm75_read_temperature_mdegc(&lm75[LM75_USB_OUT]);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-truncation"
+		snprintf(display_str, sizeof(display_str), "%02dC %02dC %02dC ", temp_charger_mdegc / 1000, temp_dc_out_mdegc / 1000, temp_usb_out_mdegc / 1000);
+#pragma GCC diagnostic pop
+		font_3x5_render_string(display_str, &fb, 9, 42);
+
+		ESP_ERROR_CHECK(ssd1306_oled_render_fb(&oled, &fb));
+		vTaskDelay(pdMS_TO_TICKS(10000));
 /*
 		for (int i = 0; i < 10; i++) {
 			ESP_ERROR_CHECK(ssd1306_oled_set_pixel(&oled, last_pixel % 64, last_pixel / 64, false));
