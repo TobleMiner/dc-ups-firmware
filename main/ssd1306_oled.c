@@ -1,6 +1,9 @@
 #include "ssd1306_oled.h"
 
+#include <string.h>
+
 #include <driver/gpio.h>
+#include <esp_log.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
@@ -27,10 +30,12 @@ const uint8_t init_sequence[] = {
 	0xd9, /* set pre-charge period */
 	0x21, /* pre-charge period */
 	0xda, /* set COM pins */
-	0x40,
+	0x12,
 	0x8d, /* enable charge pump */
 	0x14,
-	0xaf
+	0x20, /* set horizontal addressing mode */
+	0x00,
+	0xaf /* display on */
 };
 
 static esp_err_t send_command(ssd1306_oled_t *oled, uint8_t command) {
@@ -45,8 +50,7 @@ static esp_err_t send_command(ssd1306_oled_t *oled, uint8_t command) {
 	return err;
 }
 
-/*
-static esp_err_t send_multibyte_command(ssd1306_oled_t *oled, uint8_t* data, unsigned int len) {
+static esp_err_t write_gdram(ssd1306_oled_t *oled, uint8_t* data, unsigned int len) {
 	i2c_cmd_handle_t cmd = i2c_cmd_link_create_static(oled->xfers_cmd, sizeof(oled->xfers_cmd));
 	i2c_master_start(cmd);
 	i2c_master_write_byte(cmd, (oled->address << 1), true);
@@ -57,7 +61,6 @@ static esp_err_t send_multibyte_command(ssd1306_oled_t *oled, uint8_t* data, uns
 	i2c_cmd_link_delete_static(cmd);
 	return err;
 }
-*/
 
 static esp_err_t send_command_list(ssd1306_oled_t *oled, const uint8_t *cmds, unsigned int num_cmds) {
 	while (num_cmds--) {
@@ -79,6 +82,7 @@ static void reset(ssd1306_oled_t *oled) {
 }
 
 esp_err_t ssd1306_oled_init(ssd1306_oled_t *oled, i2c_bus_t *bus, unsigned int address, int reset_gpio) {
+	memset(oled, 0, sizeof(*oled));
 	oled->bus = bus;
 	oled->address = address;
 	oled->reset_gpio = reset_gpio;
@@ -86,11 +90,22 @@ esp_err_t ssd1306_oled_init(ssd1306_oled_t *oled, i2c_bus_t *bus, unsigned int a
 		gpio_set_direction(reset_gpio, GPIO_MODE_OUTPUT);
 	}
 	reset(oled);
-	esp_err_t err = send_command_list(oled, init_sequence, ARRAY_SIZE(init_sequence));
+	return send_command_list(oled, init_sequence, ARRAY_SIZE(init_sequence));
+}
+
+esp_err_t ssd1306_oled_render_fb(ssd1306_oled_t *oled, fb_t *fb) {
+	const uint8_t address_setup[] = {
+		0x21,
+		32,
+		95,
+		0x22,
+		0,
+		5
+	};
+	esp_err_t err = send_command_list(oled, address_setup, ARRAY_SIZE(address_setup));
 	if (err) {
 		return err;
 	}
-
-	// debug, set entire display on
-	return send_command(oled, 0xa5);
+	return write_gdram(oled, fb->data, sizeof(fb->data));
 }
+

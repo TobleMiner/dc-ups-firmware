@@ -7,6 +7,7 @@
 
 #include "bq24715_charger.h"
 #include "bq40z50_gauge.h"
+#include "font_3x5.h"
 #include "gpio_hc595.h"
 #include "i2c_bus.h"
 #include "ina219.h"
@@ -63,6 +64,7 @@ static ina219_t ina[4];
 static unsigned int ina_address[4] = { 0x40, 0x41, 0x42, 0x43 };
 
 static ssd1306_oled_t oled;
+static fb_t fb;
 
 static volatile bool do_shutdown = false;
 
@@ -93,6 +95,11 @@ void app_main() {
 	}
 
 	ESP_ERROR_CHECK(ssd1306_oled_init(&oled, &i2c_bus, 0x3c, GPIO_OLED_RESET));
+	fb_init(&fb);
+	font_3x5_render_string("Hello World", &fb, 0, 0);
+	font_3x5_render_string("Hello World", &fb, 0, 6);
+	font_3x5_render_string("Hello World", &fb, 0, 12);
+	ESP_ERROR_CHECK(ssd1306_oled_render_fb(&oled, &fb));
 
 	ESP_ERROR_CHECK(bq24715_init(&bq24715, &smbus_bus));
 	ESP_ERROR_CHECK(bq24715_set_max_charge_voltage(&bq24715, 8400));
@@ -117,13 +124,16 @@ void app_main() {
 
 	unsigned int toggle_gpios[] = { GPIO_HC595_USB_OUT_OFF, GPIO_HC595_DC_OUT1_OFF, GPIO_HC595_DC_OUT2_OFF, GPIO_HC595_DC_OUT3_OFF, GPIO_HC595_DC_OUT_OFF };
 	unsigned int gpio_idx = 0;
+	unsigned int pixel = 0;
+	unsigned int last_pixel = pixel;
+
 	while (1) {
 		ESP_LOGI(TAG, "Toggling GPIO %u", gpio_idx);
 		unsigned int gpio = toggle_gpios[gpio_idx++];
 		gpio_idx %= ARRAY_SIZE(toggle_gpios);
 //		ESP_ERROR_CHECK(gpio_hc595_set_level(&hc595, gpio, 1));
-		vTaskDelay(pdMS_TO_TICKS(1000));
-		ESP_ERROR_CHECK(gpio_hc595_set_level(&hc595, gpio, 0));
+//		vTaskDelay(pdMS_TO_TICKS(1000));
+//		ESP_ERROR_CHECK(gpio_hc595_set_level(&hc595, gpio, 0));
 		vTaskDelay(pdMS_TO_TICKS(1000));
 
 		unsigned int cell_voltage1, cell_voltage2;
@@ -138,6 +148,16 @@ void app_main() {
 			ESP_LOGI(TAG, "Discharging at %dmA", -current_ma);
 		}
 
+/*
+		for (int i = 0; i < 10; i++) {
+			ESP_ERROR_CHECK(ssd1306_oled_set_pixel(&oled, last_pixel % 64, last_pixel / 64, false));
+			last_pixel = pixel;
+			ESP_ERROR_CHECK(ssd1306_oled_set_pixel(&oled, pixel % 64, pixel / 64, true));
+			pixel++;
+			pixel %= 48 * 64;
+			vTaskDelay(pdMS_TO_TICKS(100));
+		}
+*/
 		if (do_shutdown) {
 			ESP_LOGI(TAG, "Button pressed! Shutting down battery pack...");
 			bq40z50_shutdown(&bq40z50);
