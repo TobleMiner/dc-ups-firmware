@@ -20,3 +20,5 @@ esp_err_t bq40z50_get_battery_voltage_mv(bq40z50_t *gauge, unsigned int *res);
 esp_err_t bq40z50_get_cell_voltage_mv(bq40z50_t *gauge, bq40z50_cell_t cell, unsigned int *res);
 esp_err_t bq40z50_get_state_of_charge_percent(bq40z50_t *gauge, bq40z50_cell_t cell, unsigned int *res);
 esp_err_t bq40z50_get_current_ma(bq40z50_t *gauge, bq40z50_cell_t cell, int *res);
+esp_err_t bq40z50_shutdown(bq40z50_t *gauge);
+

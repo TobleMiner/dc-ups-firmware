@@ -23,6 +23,7 @@
 
 #define CMD_MANUFACTURER_ACCESS		0x44
 #define CMD_MAC_DEVICE_TYPE		0x01
+#define CMD_MAC_SHUTDOWN		0x10
 
 static const char *TAG = "BQ40Z50 GAUGE";
 
@@ -49,10 +50,14 @@ static esp_err_t write_word(bq40z50_t *gauge, uint8_t cmd, uint16_t val) {
 	return smbus_write_word(gauge->bus, gauge->address, cmd, word);
 }
 
+static esp_err_t mac_command(bq40z50_t *gauge, uint16_t cmd) {
+	uint8_t word[2] = { cmd & 0xff, cmd >> 8 };
+	return smbus_write_block(gauge->bus, gauge->address, CMD_MANUFACTURER_ACCESS, word, sizeof(word));
+}
+
 static esp_err_t read_mac_word(bq40z50_t *gauge, uint16_t cmd, uint16_t *res) {
 	uint8_t response[4];
-	uint8_t word[2] = { cmd & 0xff, cmd >> 8 };
-	esp_err_t err = smbus_write_block(gauge->bus, gauge->address, CMD_MANUFACTURER_ACCESS, word, sizeof(word));
+	esp_err_t err = mac_command(gauge, cmd);
 	if (err) {
 		ESP_LOGE(TAG, "Failed to write MAC command: 0x%x(%d)", err, err);
 		return err;
@@ -113,4 +118,8 @@ esp_err_t bq40z50_get_state_of_charge_percent(bq40z50_t *gauge, bq40z50_cell_t c
 
 esp_err_t bq40z50_get_current_ma(bq40z50_t *gauge, bq40z50_cell_t cell, int *res) {
 	return read_sword(gauge, CMD_CURRENT, res);
+}
+
+esp_err_t bq40z50_shutdown(bq40z50_t *gauge) {
+	return mac_command(gauge, CMD_MAC_SHUTDOWN);
 }

@@ -1,3 +1,4 @@
+#include <driver/gpio.h>
 #include <driver/i2c.h>
 #include <driver/spi_master.h>
 #include <esp_err.h>
@@ -35,6 +36,8 @@
 
 #define GPIO_OLED_RESET		23
 
+#define GPIO_BUTTON		39
+
 static const char *TAG = "main";
 
 static const spi_bus_config_t hc595_spi_bus_cfg = {
@@ -61,7 +64,15 @@ static unsigned int ina_address[4] = { 0x40, 0x41, 0x42, 0x43 };
 
 static ssd1306_oled_t oled;
 
+static volatile bool do_shutdown = false;
+
+static void button_pressed(void *_) {
+	do_shutdown = true;
+}
+
 void app_main() {
+	ESP_ERROR_CHECK(gpio_install_isr_service(0));
+
 	ESP_ERROR_CHECK(spi_bus_initialize(SPI_HC595, &hc595_spi_bus_cfg, SPI_DMA_DISABLED));
 	ESP_ERROR_CHECK(gpio_hc595_init(&hc595, SPI_HC595, GPIO_HC595_LATCH));
 
@@ -88,6 +99,9 @@ void app_main() {
 	ESP_ERROR_CHECK(bq24715_set_charge_current(&bq24715, 256));
 
 	ESP_ERROR_CHECK(bq40z50_init(&bq40z50, &smbus_bus, -1));
+	gpio_set_direction(GPIO_BUTTON, GPIO_MODE_INPUT);
+	gpio_set_intr_type(GPIO_BUTTON, GPIO_INTR_NEGEDGE);
+	ESP_ERROR_CHECK(gpio_isr_handler_add(GPIO_BUTTON, button_pressed, NULL));
 
 	for (int i = 0; i < ARRAY_SIZE(ina); i++) {
 		ESP_ERROR_CHECK(ina219_init(&ina[i], &smbus_bus, ina_address[i], 10));
@@ -122,6 +136,12 @@ void app_main() {
 			ESP_LOGI(TAG, "Charging at %dmA", current_ma);
 		} else {
 			ESP_LOGI(TAG, "Discharging at %dmA", -current_ma);
+		}
+
+		if (do_shutdown) {
+			ESP_LOGI(TAG, "Button pressed! Shutting down battery pack...");
+			bq40z50_shutdown(&bq40z50);
+			do_shutdown = false;
 		}
 	}
 }
