@@ -2,10 +2,10 @@
 
 #include <esp_err.h>
 
-#include "i2c_bus.h"
+#include "smbus.h"
 
 typedef struct ina219 {
-	i2c_bus_t *bus;
+	smbus_t *bus;
 	unsigned int address;
 	unsigned int shunt_resistance_mohms;
 } ina219_t;
@@ -36,7 +36,7 @@ typedef enum {
 	INA219_ADC_RESOLUTION_AVG_128 = 15,
 } ina219_adc_resolution_t;
 
-esp_err_t ina219_init(ina219_t *ina, i2c_bus_t *bus, unsigned int address, unsigned int shunt_resistance_mohms);
+esp_err_t ina219_init(ina219_t *ina, smbus_t *bus, unsigned int address, unsigned int shunt_resistance_mohms);
 esp_err_t ina219_reset(ina219_t *ina);
 esp_err_t ina219_set_voltage_range(ina219_t *ina, ina219_bus_voltage_range_t range);
 esp_err_t ina219_set_shunt_voltage_range(ina219_t *ina, ina219_pga_current_gain_t gain);

@@ -4,8 +4,6 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
-#include "smbus.h"
-
 #define CMD_CONFIGURATION	0x00
 #define CMD_SHUNT_VOLTAGE	0x01
 #define CMD_BUS_VOLTAGE		0x02
@@ -51,7 +49,7 @@ static esp_err_t update_bits(ina219_t *ina, unsigned int cmd, unsigned int shift
 	return write_word(ina, cmd, new_value);
 }
 
-esp_err_t ina219_init(ina219_t *ina, i2c_bus_t *bus, unsigned int address, unsigned int shunt_resistance_mohms) {
+esp_err_t ina219_init(ina219_t *ina, smbus_t *bus, unsigned int address, unsigned int shunt_resistance_mohms) {
 	ina->bus = bus;
 	ina->address = address;
 	ina->shunt_resistance_mohms = shunt_resistance_mohms;

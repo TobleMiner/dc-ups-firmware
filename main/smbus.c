@@ -2,14 +2,21 @@
 #include <stdlib.h>
 
 #include <driver/i2c.h>
+#include <esp_log.h>
 
 #include "smbus.h"
 
-esp_err_t smbus_write(struct i2c_bus* bus, uint8_t slave, uint8_t smcmd, void *data, size_t len) {
+static const char *TAG = "smbus";
+
+void smbus_init(smbus_t *bus, i2c_bus_t *i2c) {
+	bus->i2c = i2c;
+	bus->lock = xSemaphoreCreateMutexStatic(&bus->lock_buffer);
+}
+
+esp_err_t smbus_write(smbus_t* bus, uint8_t slave, uint8_t smcmd, void *data, size_t len) {
+	xSemaphoreTake(bus->lock, portMAX_DELAY);
 	esp_err_t err;
-	size_t cmd_buf_len = I2C_LINK_RECOMMENDED_SIZE(3);
-	void *cmd_buf = malloc(cmd_buf_len);
-	i2c_cmd_handle_t cmd = i2c_cmd_link_create_static(cmd_buf, cmd_buf_len);
+	i2c_cmd_handle_t cmd = i2c_cmd_link_create_static(bus->cmd_buf, sizeof(bus->cmd_buf));
 	if(!cmd) {
 		err = ESP_ERR_NO_MEM;
 		goto fail;
@@ -29,18 +36,18 @@ esp_err_t smbus_write(struct i2c_bus* bus, uint8_t slave, uint8_t smcmd, void *d
 	if((err = i2c_master_stop(cmd))) {
 		goto fail_link;
 	}
-	err = i2c_bus_cmd_begin(bus, cmd, pdMS_TO_TICKS(100));
+	err = i2c_bus_cmd_begin(bus->i2c, cmd, pdMS_TO_TICKS(100));
 fail_link:
 	i2c_cmd_link_delete_static(cmd);
 fail:
+	xSemaphoreGive(bus->lock);
 	return err;
 }
 
-esp_err_t smbus_read(struct i2c_bus* bus, uint8_t slave, uint8_t smcmd, void *data, size_t len) {
+esp_err_t smbus_read(smbus_t* bus, uint8_t slave, uint8_t smcmd, void *data, size_t len) {
+	xSemaphoreTake(bus->lock, portMAX_DELAY);
 	esp_err_t err;
-	size_t cmd_buf_len = I2C_LINK_RECOMMENDED_SIZE(4);
-	void *cmd_buf = malloc(cmd_buf_len);
-	i2c_cmd_handle_t cmd = i2c_cmd_link_create_static(cmd_buf, cmd_buf_len);
+	i2c_cmd_handle_t cmd = i2c_cmd_link_create_static(bus->cmd_buf, sizeof(bus->cmd_buf));
 	if(!cmd) {
 		err = ESP_ERR_NO_MEM;
 		goto fail;
@@ -66,18 +73,18 @@ esp_err_t smbus_read(struct i2c_bus* bus, uint8_t slave, uint8_t smcmd, void *da
 	if((err = i2c_master_stop(cmd))) {
 		goto fail_link;
 	}
-	err = i2c_bus_cmd_begin(bus, cmd, pdMS_TO_TICKS(100));
+	err = i2c_bus_cmd_begin(bus->i2c, cmd, pdMS_TO_TICKS(100));
 fail_link:
 	i2c_cmd_link_delete_static(cmd);
 fail:
+	xSemaphoreGive(bus->lock);
 	return err;
 }
 
-esp_err_t smbus_write_block(struct i2c_bus* bus, uint8_t slave, uint8_t smcmd, void *data, size_t len) {
+esp_err_t smbus_write_block(smbus_t* bus, uint8_t slave, uint8_t smcmd, void *data, size_t len) {
+	xSemaphoreTake(bus->lock, portMAX_DELAY);
 	esp_err_t err;
-	size_t cmd_buf_len = I2C_LINK_RECOMMENDED_SIZE(4);
-	void *cmd_buf = malloc(cmd_buf_len);
-	i2c_cmd_handle_t cmd = i2c_cmd_link_create_static(cmd_buf, cmd_buf_len);
+	i2c_cmd_handle_t cmd = i2c_cmd_link_create_static(bus->cmd_buf, sizeof(bus->cmd_buf));
 	if(!cmd) {
 		err = ESP_ERR_NO_MEM;
 		goto fail;
@@ -100,18 +107,18 @@ esp_err_t smbus_write_block(struct i2c_bus* bus, uint8_t slave, uint8_t smcmd, v
 	if((err = i2c_master_stop(cmd))) {
 		goto fail_link;
 	}
-	err = i2c_bus_cmd_begin(bus, cmd, pdMS_TO_TICKS(1000));
+	err = i2c_bus_cmd_begin(bus->i2c, cmd, pdMS_TO_TICKS(1000));
 fail_link:
 	i2c_cmd_link_delete_static(cmd);
 fail:
+	xSemaphoreGive(bus->lock);
 	return err;
 }
 
-esp_err_t smbus_read_block(struct i2c_bus* bus, uint8_t slave, uint8_t smcmd, void *data, size_t len, size_t *data_len) {
+esp_err_t smbus_read_block(smbus_t* bus, uint8_t slave, uint8_t smcmd, void *data, size_t len, size_t *data_len) {
+	xSemaphoreTake(bus->lock, portMAX_DELAY);
 	esp_err_t err;
-	size_t cmd_buf_len = I2C_LINK_RECOMMENDED_SIZE(5);
-	void *cmd_buf = malloc(cmd_buf_len);
-	i2c_cmd_handle_t cmd = i2c_cmd_link_create_static(cmd_buf, cmd_buf_len);
+	i2c_cmd_handle_t cmd = i2c_cmd_link_create_static(bus->cmd_buf, sizeof(bus->cmd_buf));
 	if(!cmd) {
 		err = ESP_ERR_NO_MEM;
 		goto fail;
@@ -141,12 +148,13 @@ esp_err_t smbus_read_block(struct i2c_bus* bus, uint8_t slave, uint8_t smcmd, vo
 	if((err = i2c_master_stop(cmd))) {
 		goto fail_link;
 	}
-	err = i2c_bus_cmd_begin(bus, cmd, pdMS_TO_TICKS(1000));
+	err = i2c_bus_cmd_begin(bus->i2c, cmd, pdMS_TO_TICKS(1000));
 	if (!err && data_len) {
 		*data_len = data_len_;
 	}
 fail_link:
 	i2c_cmd_link_delete_static(cmd);
 fail:
+	xSemaphoreGive(bus->lock);
 	return err;
 }

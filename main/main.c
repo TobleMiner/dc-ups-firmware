@@ -52,7 +52,8 @@ static const spi_bus_config_t hc595_spi_bus_cfg = {
 static gpio_hc595_t hc595;
 
 static i2c_bus_t i2c_bus;
-static i2c_bus_t smbus_bus;
+static i2c_bus_t smbus_i2c_bus;
+static smbus_t smbus_bus;
 
 #define LM75_CHARGER	0
 #define LM75_DC_OUT	1
@@ -87,8 +88,9 @@ void app_main() {
 	ESP_ERROR_CHECK(spi_bus_initialize(SPI_HC595, &hc595_spi_bus_cfg, SPI_DMA_DISABLED));
 	ESP_ERROR_CHECK(gpio_hc595_init(&hc595, SPI_HC595, GPIO_HC595_LATCH));
 
-	ESP_ERROR_CHECK(i2c_bus_init(&smbus_bus, I2C_SMBUS, GPIO_SMBUS_DATA, GPIO_SMBUS_CLK, KHZ(100)));
-	i2c_detect(&smbus_bus);
+	ESP_ERROR_CHECK(i2c_bus_init(&smbus_i2c_bus, I2C_SMBUS, GPIO_SMBUS_DATA, GPIO_SMBUS_CLK, KHZ(100)));
+	smbus_init(&smbus_bus, &smbus_i2c_bus);
+	i2c_detect(&smbus_i2c_bus);
 
 	ESP_ERROR_CHECK(i2c_bus_init(&i2c_bus, I2C_I2C, GPIO_I2C_DATA, GPIO_I2C_CLK, KHZ(100)));
 	i2c_detect(&i2c_bus);

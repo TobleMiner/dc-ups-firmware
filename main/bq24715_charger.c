@@ -1,6 +1,8 @@
 #include "bq24715_charger.h"
 #include "smbus.h"
 
+#include <esp_log.h>
+
 #define SMBUS_ADDRESS	0x09
 #define DEVICE_ID	0x10
 #define MANUFACTURER_ID	0x40
@@ -12,20 +14,28 @@
 #define CMD_MANUFACTURER_ID	0xfe
 #define CMD_DEVICE_ID		0xff
 
-esp_err_t bq24715_init(bq24715_t *charger, i2c_bus_t *smbus) {
+static const char *TAG = "bq24715_charger";
+
+esp_err_t bq24715_init(bq24715_t *charger, smbus_t *smbus) {
 	uint8_t word[2];
 	esp_err_t err = smbus_read_word(smbus, SMBUS_ADDRESS, CMD_MANUFACTURER_ID, word);
 	if (err) {
+		ESP_LOGE(TAG, "Failed to read manufacturer ID");
 		return err;
 	}
 	if (word[0] != MANUFACTURER_ID) {
+		ESP_LOGE(TAG, "Invalid manufacturer ID, should be 0x%02X but is 0x%02X",
+			 MANUFACTURER_ID, word[0]);
 		return ESP_ERR_INVALID_RESPONSE;
 	}
 	err = smbus_read_word(smbus, SMBUS_ADDRESS, CMD_DEVICE_ID, word);
 	if (err) {
+		ESP_LOGE(TAG, "Failed to read device ID");
 		return err;
 	}
 	if (word[0] != DEVICE_ID) {
+		ESP_LOGE(TAG, "Invalid device ID, should be 0x%02X but is 0x%02X",
+			 DEVICE_ID, word[0]);
 		return ESP_ERR_INVALID_RESPONSE;
 	}
 
@@ -34,7 +44,7 @@ esp_err_t bq24715_init(bq24715_t *charger, i2c_bus_t *smbus) {
 }
 
 esp_err_t bq24715_set_charge_current(bq24715_t *charger, unsigned int current_ma) {
-	if (current_ma < 128 || current_ma > 8192) {
+	if (current_ma > 8192) {
 		return ESP_ERR_INVALID_ARG;
 	}
 	current_ma &= ~((uint16_t)0xe03f);

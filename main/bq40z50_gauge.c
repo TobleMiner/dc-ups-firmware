@@ -2,8 +2,6 @@
 
 #include <esp_log.h>
 
-#include "smbus.h"
-
 #define DEFAULT_SMBUS_ADDRESS		0x0b
 
 #define DEVICE_TYPE			0x4500
@@ -78,7 +76,7 @@ static esp_err_t read_mac_word(bq40z50_t *gauge, uint16_t cmd, uint16_t *res) {
 	return ESP_OK;
 }
 
-esp_err_t bq40z50_init(bq40z50_t *gauge, i2c_bus_t *bus, int address) {
+esp_err_t bq40z50_init(bq40z50_t *gauge, smbus_t *bus, int address) {
 	if (address == -1) {
 		address = DEFAULT_SMBUS_ADDRESS;
 	}
