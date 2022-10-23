@@ -141,6 +141,16 @@ void app_main() {
 //		ESP_ERROR_CHECK(gpio_hc595_set_level(&hc595, gpio, 0));
 //		vTaskDelay(pdMS_TO_TICKS(1000));
 
+		unsigned int charging_current_ma, charging_voltage_mv;
+		ESP_ERROR_CHECK(bq40z50_get_charging_current_ma(&bq40z50, &charging_current_ma));
+		ESP_ERROR_CHECK(bq40z50_get_charging_voltage_mv(&bq40z50, &charging_voltage_mv));
+		ESP_LOGI(TAG, "Charging parameters: %umA, %umV", charging_current_ma, charging_voltage_mv);
+		if (charging_current_ma > 512) {
+			charging_current_ma = 512;
+		}
+		charging_current_ma += 32;
+		ESP_ERROR_CHECK(bq24715_set_charge_current(&bq24715, charging_current_ma));
+
 		unsigned int cell_voltage1, cell_voltage2;
 		unsigned int state_of_charge;
 		int current_ma;
