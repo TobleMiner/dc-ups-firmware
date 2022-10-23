@@ -17,6 +17,8 @@
 #define CMD_REMAINING_ENERGY		0x0f
 #define CMD_RUN_TIME_TO_EMPTY		0x11
 #define CMD_AVERAGE_TIME_TO_EMPTY	0x12
+#define CMD_CHARGING_CURRENT		0x14
+#define CMD_CHARGING_VOLTAGE		0x15
 #define CMD_CELL_VOLTAGE2		0x3e
 #define CMD_CELL_VOLTAGE1		0x3f
 #define CMD_STATE_OF_HEALTH		0x4f
@@ -122,4 +124,12 @@ esp_err_t bq40z50_get_current_ma(bq40z50_t *gauge, bq40z50_cell_t cell, int *res
 
 esp_err_t bq40z50_shutdown(bq40z50_t *gauge) {
 	return mac_command(gauge, CMD_MAC_SHUTDOWN);
+}
+
+esp_err_t bq40z50_get_charging_current_ma(bq40z50_t *gauge, unsigned int *res) {
+	return read_uword(gauge, CMD_CHARGING_CURRENT, res);
+}
+
+esp_err_t bq40z50_get_charging_voltage_mv(bq40z50_t *gauge, unsigned int *res) {
+	return read_uword(gauge, CMD_CHARGING_VOLTAGE, res);
 }
