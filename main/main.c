@@ -7,6 +7,7 @@
 
 #include "bq24715_charger.h"
 #include "bq40z50_gauge.h"
+#include "ethernet.h"
 #include "font_3x5.h"
 #include "gpio_hc595.h"
 #include "i2c_bus.h"
@@ -38,6 +39,10 @@
 #define GPIO_OLED_RESET		23
 
 #define GPIO_BUTTON		39
+
+#define GPIO_PHY_RESET		32
+#define GPIO_PHY_MDC		2
+#define GPIO_PHY_MDIO		18
 
 static const char *TAG = "main";
 
@@ -78,12 +83,21 @@ static fb_t fb;
 
 static volatile bool do_shutdown = false;
 
+static const ethernet_config_t ethernet_cfg = {
+	.phy_address = 0,
+	.phy_reset_gpio = GPIO_PHY_RESET,
+	.mdc_gpio = GPIO_PHY_MDC,
+	.mdio_gpio = GPIO_PHY_MDIO
+};
+
 static void button_pressed(void *_) {
 	do_shutdown = true;
 }
 
 void app_main() {
 	ESP_ERROR_CHECK(gpio_install_isr_service(0));
+
+	ESP_ERROR_CHECK(ethernet_init(&ethernet_cfg));
 
 	ESP_ERROR_CHECK(spi_bus_initialize(SPI_HC595, &hc595_spi_bus_cfg, SPI_DMA_DISABLED));
 	ESP_ERROR_CHECK(gpio_hc595_init(&hc595, SPI_HC595, GPIO_HC595_LATCH));
