@@ -1,2 +1,24 @@
-idf_component_register(SRCS main.c gpio_hc595.c delay.c util.h i2c_bus.c lm75.c smbus.c bq24715_charger.c bq40z50_gauge.c ina219.c ssd1306_oled.c font_3x5.c ethernet.c
+set(SOURCE_FILES
+	bq24715_charger.c
+	bq40z50_gauge.c
+	delay.c
+	ethernet.c
+	font_3x5.c
+	futil.c
+	gpio_hc595.c
+	httpd.c
+	i2c_bus.c
+	ina219.c
+	kvparser.c
+	lm75.c
+	magic.c
+	main.c
+	mime.c
+	ring.c
+	smbus.c
+	ssd1306_oled.c
+	template.c
+	util.c)
+
+idf_component_register(SRCS ${SOURCE_FILES}
                        INCLUDE_DIRS ".")

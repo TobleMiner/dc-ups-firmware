@@ -1,7 +1,8 @@
 #pragma once
 
-#include <string.h>
 #include <stddef.h>
+#include <stdint.h>
+#include <string.h>
 
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof(*(arr)))

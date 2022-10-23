@@ -3,6 +3,7 @@
 #include <driver/spi_master.h>
 #include <esp_err.h>
 #include <esp_log.h>
+#include <esp_spiffs.h>
 #include <freertos/FreeRTOS.h>
 
 #include "bq24715_charger.h"
@@ -10,6 +11,7 @@
 #include "ethernet.h"
 #include "font_3x5.h"
 #include "gpio_hc595.h"
+#include "httpd.h"
 #include "i2c_bus.h"
 #include "ina219.h"
 #include "lm75.h"
@@ -46,6 +48,13 @@
 
 static const char *TAG = "main";
 
+static const esp_vfs_spiffs_conf_t spiffs_conf = {
+	.base_path = "/webroot",
+	.partition_label = "webroot",
+	.max_files = 5,
+	.format_if_mount_failed = false
+};
+
 static const spi_bus_config_t hc595_spi_bus_cfg = {
 	.mosi_io_num = GPIO_HC595_DATA,
 	.miso_io_num = -1,
@@ -81,6 +90,8 @@ static unsigned int ina_address[4] = { 0x40, 0x41, 0x42, 0x43 };
 static ssd1306_oled_t oled;
 static fb_t fb;
 
+static httpd_t httpd;
+
 static volatile bool do_shutdown = false;
 
 static const ethernet_config_t ethernet_cfg = {
@@ -96,6 +107,8 @@ static void button_pressed(void *_) {
 
 void app_main() {
 	ESP_ERROR_CHECK(gpio_install_isr_service(0));
+
+	ESP_ERROR_CHECK(esp_vfs_spiffs_register(&spiffs_conf));
 
 	ESP_ERROR_CHECK(ethernet_init(&ethernet_cfg));
 
@@ -142,6 +155,8 @@ void app_main() {
 		ESP_ERROR_CHECK(ina219_read_power_uw(&ina[i], &power_uw));
 		ESP_LOGI(TAG, "INA %d: %umV @ %ldmA (Ushunt: %lduV, %ldmW)", i, bus_voltage_mv, current_ua / 1000L, shunt_voltage_uv, power_uw / 1000L);
 	}
+
+	ESP_ERROR_CHECK(httpd_init(&httpd, "/webroot", 32));
 
 	unsigned int toggle_gpios[] = { GPIO_HC595_USB_OUT_OFF, GPIO_HC595_DC_OUT1_OFF, GPIO_HC595_DC_OUT2_OFF, GPIO_HC595_DC_OUT3_OFF, GPIO_HC595_DC_OUT_OFF };
 	unsigned int gpio_idx = 0;
@@ -211,7 +226,7 @@ void app_main() {
 		font_3x5_render_string("Battery current", &fb, 3, 30);
 		snprintf(display_str, sizeof(display_str), "%04dmA ", current_ma);
 		font_3x5_render_string(display_str, &fb, 17, 36);
-		
+
 		int32_t temp_charger_mdegc = lm75_read_temperature_mdegc(&lm75[LM75_CHARGER]);
 		int32_t temp_dc_out_mdegc = lm75_read_temperature_mdegc(&lm75[LM75_DC_OUT]);
 		int32_t temp_usb_out_mdegc = lm75_read_temperature_mdegc(&lm75[LM75_USB_OUT]);
