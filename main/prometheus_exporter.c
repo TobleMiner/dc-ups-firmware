@@ -47,7 +47,7 @@ static esp_err_t handle_metric(prometheus_metric_t *metric, struct httpd_request
 	}
 
 	if (def->help) {
-		httpd_response_write_string(ctx, "HELP ");
+		httpd_response_write_string(ctx, "# HELP ");
 		httpd_response_write_string(ctx, def->name);
 		httpd_response_write_string(ctx, " ");
 		httpd_response_write_string(ctx, def->help);
@@ -67,7 +67,7 @@ static esp_err_t handle_metric(prometheus_metric_t *metric, struct httpd_request
 			ESP_LOGE(TAG, "Invalid type for metric %s", def->name);
 			return ESP_ERR_INVALID_ARG;
 		}
-		httpd_response_write_string(ctx, "TYPE ");
+		httpd_response_write_string(ctx, "# TYPE ");
 		httpd_response_write_string(ctx, def->name);
 		httpd_response_write_string(ctx, " ");
 		httpd_response_write_string(ctx, type_name);
