@@ -14,7 +14,7 @@
 #include "futil.h"
 #include "mime.h"
 
-esp_err_t httpd_template_write(struct httpd_request_ctx* ctx, const char* buff, size_t len) {
+esp_err_t httpd_response_write(struct httpd_request_ctx* ctx, const char* buff, size_t len) {
   return httpd_resp_send_chunk(ctx->req, buff, len);
 }
 

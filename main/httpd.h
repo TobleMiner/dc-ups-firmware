@@ -101,7 +101,7 @@ esp_err_t httpd_alloc(struct httpd** retval, const char* webroot, uint16_t max_n
 esp_err_t httpd_init(struct httpd* httpd, const char* webroot, uint16_t max_num_handlers);
 esp_err_t __httpd_add_static_path(struct httpd* httpd, const char* dir, char* name);
 esp_err_t httpd_add_redirect(struct httpd* httpd, const char* from, const char* to);
-esp_err_t httpd_template_write(struct httpd_request_ctx* ctx, const char* buff, size_t len);
+esp_err_t httpd_response_write(struct httpd_request_ctx* ctx, const char* buff, size_t len);
 ssize_t httpd_query_string_get_param(struct httpd_request_ctx* ctx, const char* param, char** value);
 esp_err_t httpd_add_handler(struct httpd* httpd, httpd_method_t method, const char* path, httpd_request_cb cb, void* priv, bool websocket, size_t num_param, ...);
 esp_err_t httpd_send_error(struct httpd_request_ctx* ctx, const char* status);
