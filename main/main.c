@@ -201,7 +201,7 @@ void app_main() {
 		ESP_ERROR_CHECK(bq40z50_get_cell_voltage_mv(&bq40z50, BQ40Z50_CELL_2, &cell_voltage2));
 		ESP_ERROR_CHECK(bq40z50_get_state_of_charge_percent(&bq40z50, &state_of_charge));
 		ESP_LOGI(TAG, "Cell voltages: %umV, %umV", cell_voltage1, cell_voltage2);
-		ESP_ERROR_CHECK(bq40z50_get_current_ma(&bq40z50, BQ40Z50_CELL_2, &current_ma));
+		ESP_ERROR_CHECK(bq40z50_get_current_ma(&bq40z50, &current_ma));
 		if (current_ma > 0) {
 			ESP_LOGI(TAG, "Charging at %dmA", current_ma);
 		} else {

@@ -116,7 +116,7 @@ esp_err_t bq40z50_get_state_of_charge_percent(bq40z50_t *gauge, unsigned int *re
 	return read_uword(gauge, CMD_STATE_OF_CHARGE, res);
 }
 
-esp_err_t bq40z50_get_current_ma(bq40z50_t *gauge, bq40z50_cell_t cell, int *res) {
+esp_err_t bq40z50_get_current_ma(bq40z50_t *gauge, int *res) {
 	return read_sword(gauge, CMD_CURRENT, res);
 }
 
