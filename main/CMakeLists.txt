@@ -14,6 +14,9 @@ set(SOURCE_FILES
 	magic.c
 	main.c
 	mime.c
+	prometheus.c
+	prometheus_exporter.c
+	prometheus_metrics.c
 	ring.c
 	smbus.c
 	ssd1306_oled.c
