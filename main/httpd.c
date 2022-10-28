@@ -23,7 +23,7 @@ esp_err_t httpd_send_error_msg(struct httpd_request_ctx* ctx, const char* status
   if(msg) {
     err = httpd_resp_send_chunk(ctx->req, msg, strlen(msg));
   }
-  httpd_finalize_request(ctx);
+  httpd_finalize_response(ctx);
   return err;
 }
 

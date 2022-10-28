@@ -118,7 +118,7 @@ static inline esp_err_t httpd_add_template(struct httpd* httpd, char *id, templ_
 #define httpd_set_status(ctx, status) \
   httpd_resp_set_status((ctx)->req, status)
 
-#define httpd_finalize_request(ctx) \
+#define httpd_finalize_response(ctx) \
   httpd_resp_send_chunk((ctx)->req, NULL, 0)
 
 #define httpd_add_get_handler(httpd, path, cb, priv, num_params, ...) \
