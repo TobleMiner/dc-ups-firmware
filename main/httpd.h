@@ -107,6 +107,7 @@ esp_err_t httpd_add_handler(struct httpd* httpd, httpd_method_t method, const ch
 esp_err_t httpd_send_error(struct httpd_request_ctx* ctx, const char* status);
 esp_err_t httpd_send_error_msg(struct httpd_request_ctx* ctx, const char* status, const char* msg);
 char *slice_scope_get_variable(struct httpd_slice_ctx *slice, const char* name);
+esp_err_t httpd_response_write_string(struct httpd_request_ctx* ctx, const char* str);
 
 #define httpd_add_static_path(httpd, path) \
   __httpd_add_static_path(httpd, NULL, path)

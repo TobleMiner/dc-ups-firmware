@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdarg.h>
+#include <string.h>
 
 #include "esp_err.h"
 #include "esp_log.h"
@@ -16,6 +17,10 @@
 
 esp_err_t httpd_response_write(struct httpd_request_ctx* ctx, const char* buff, size_t len) {
   return httpd_resp_send_chunk(ctx->req, buff, len);
+}
+
+esp_err_t httpd_response_write_string(struct httpd_request_ctx* ctx, const char* str) {
+  return httpd_response_write(ctx, str, strlen(str));
 }
 
 esp_err_t httpd_send_error_msg(struct httpd_request_ctx* ctx, const char* status, const char* msg) {
