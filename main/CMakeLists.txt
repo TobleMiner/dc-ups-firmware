@@ -17,6 +17,7 @@ set(SOURCE_FILES
 	prometheus.c
 	prometheus_exporter.c
 	prometheus_metrics.c
+	prometheus_metrics_battery.c
 	ring.c
 	smbus.c
 	ssd1306_oled.c

@@ -17,6 +17,7 @@
 #include "lm75.h"
 #include "prometheus_exporter.h"
 #include "prometheus_metrics.h"
+#include "prometheus_metrics_battery.h"
 #include "ssd1306_oled.h"
 #include "util.h"
 
@@ -97,6 +98,7 @@ static httpd_t httpd;
 prometheus_t prometheus;
 prometheus_metric_t metric_simple;
 prometheus_metric_t metric_complex;
+prometheus_battery_metrics_t battery_metrics;
 
 static volatile bool do_shutdown = false;
 
@@ -168,6 +170,8 @@ void app_main() {
 	prometheus_add_metric(&prometheus, &metric_simple);
 	prometheus_metric_init(&metric_complex, &complex_test_metric_def, NULL);
 	prometheus_add_metric(&prometheus, &metric_complex);
+	prometheus_battery_metrics_init(&battery_metrics, &bq40z50);
+	prometheus_add_battery_metrics(&battery_metrics, &prometheus);
 	ESP_ERROR_CHECK(prometheus_register_exporter(&prometheus, &httpd, "/prometheus"));
 
 	unsigned int toggle_gpios[] = { GPIO_HC595_USB_OUT_OFF, GPIO_HC595_DC_OUT1_OFF, GPIO_HC595_DC_OUT2_OFF, GPIO_HC595_DC_OUT3_OFF, GPIO_HC595_DC_OUT_OFF };
