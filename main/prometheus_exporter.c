@@ -5,12 +5,30 @@
 const static char *TAG = "prometheus_exporter";
 
 static void handle_labels(const prometheus_metric_value_t *value, prometheus_metric_t *metric, struct httpd_request_ctx* ctx) {
-	unsigned int num_labels = value->get_num_labels(value, metric);
+	unsigned int num_static_labels = value->num_labels;
+	unsigned int num_dynamic_labels = 0;
+	if (value->get_num_labels) {
+		num_dynamic_labels = value->get_num_labels(value, metric);
+	}
+	unsigned int num_labels = num_static_labels + num_dynamic_labels;
 	if (!num_labels) {
 		return;
 	}
+
 	httpd_response_write_string(ctx, "{");
-	for (unsigned int i = 0; i < num_labels; i++) {
+	for (unsigned int i = 0; i < num_static_labels; i++) {
+		const prometheus_label_t *label;
+
+		label = &value->labels[i];
+		httpd_response_write_string(ctx, label->name);
+		httpd_response_write_string(ctx, "=\"");
+		httpd_response_write_string(ctx, label->value);
+		httpd_response_write_string(ctx, "\"");
+		if (i < num_static_labels - 1 || num_dynamic_labels) {
+			httpd_response_write_string(ctx, ",");
+		}
+	}
+	for (unsigned int i = 0; i < num_dynamic_labels; i++) {
 		char name[PROMETHEUS_LABEL_MAX_LEN];
 		char label[PROMETHEUS_LABEL_MAX_LEN];
 
@@ -19,7 +37,7 @@ static void handle_labels(const prometheus_metric_value_t *value, prometheus_met
 		httpd_response_write_string(ctx, "=\"");
 		httpd_response_write_string(ctx, label);
 		httpd_response_write_string(ctx, "\"");
-		if (i < num_labels - 1) {
+		if (i < num_dynamic_labels - 1) {
 			httpd_response_write_string(ctx, ",");
 		}
 	}
@@ -30,12 +48,12 @@ static void handle_value(const prometheus_metric_value_t *value, prometheus_metr
 	const prometheus_metric_def_t *def = metric->def;
 	httpd_response_write_string(ctx, def->name);
 	httpd_response_write_string(ctx, " ");
-	if (value->get_num_labels) {
+	if (value->num_labels || value->get_num_labels) {
 		handle_labels(value, metric, ctx);
 	}
-	char label[PROMETHEUS_VALUE_MAX_LEN];
-	value->get_value(value, metric, label);
-	httpd_response_write_string(ctx, label);
+	char value_str[PROMETHEUS_VALUE_MAX_LEN];
+	value->get_value(value, metric, value_str);
+	httpd_response_write_string(ctx, value_str);
 	httpd_response_write_string(ctx, "\n");
 }
 
@@ -76,6 +94,15 @@ static esp_err_t handle_metric(prometheus_metric_t *metric, struct httpd_request
 
 	for (unsigned int i = 0; i < def->num_values; i++) {
 		handle_value(&def->values[i], metric, ctx);
+	}
+	if (def->get_num_values) {
+		unsigned int num_values = def->get_num_values(metric);
+		for (unsigned int i = 0; i < num_values; i++) {
+			prometheus_metric_value_t value;
+			memset(&value, 0, sizeof(value));
+			def->get_value(metric, i, &value);
+			handle_value(&value, metric, ctx);
+		}
 	}
 	return ESP_OK;
 }

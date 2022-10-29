@@ -11,6 +11,7 @@ static void test_metric_get_value(const prometheus_metric_value_t *val, promethe
 }
 
 static const prometheus_metric_value_t test_metric_value = {
+	.num_labels = 0,
 	.get_num_labels = NULL,
 	.get_value = test_metric_get_value,
 };
@@ -21,6 +22,7 @@ const prometheus_metric_def_t test_metric_def = {
 	.type = PROMETHEUS_METRIC_TYPE_GAUGE,
 	.values = &test_metric_value,
 	.num_values = 1,
+	.get_num_values = NULL,
 };
 
 
@@ -53,17 +55,31 @@ static void complex_test_metric_get_labeled_value(const prometheus_metric_value_
 	sprintf(value, "%u", num_metric_retrievals * (metric_index + 1));
 }
 
+const prometheus_label_t complex_test_metric_labels[] = {
+	{
+		.name = "static_label1",
+		.value = "static_value1",
+	}, {
+		.name = "static_label2",
+		.value = "static_value2",
+	},
+};
+
 const prometheus_metric_value_t complex_test_metric_values[] = {
 	{
+		.num_labels = 0,
 		.get_num_labels = NULL,
 		.get_value = complex_test_metric_get_unlabeled_value,
 	},
 	{
+		.labels = complex_test_metric_labels,
+		.num_labels = ARRAY_SIZE(complex_test_metric_labels),
 		.get_num_labels = complex_test_metric_get_num_labels,
 		.get_label = complex_test_metric_get_label,
 		.get_value = complex_test_metric_get_labeled_value,
 	},
 	{
+		.num_labels = 0,
 		.get_num_labels = complex_test_metric_get_num_labels,
 		.get_label = complex_test_metric_get_label,
 		.get_value = complex_test_metric_get_labeled_value,
@@ -76,4 +92,5 @@ const prometheus_metric_def_t complex_test_metric_def = {
 	.type = PROMETHEUS_METRIC_TYPE_COUNTER,
 	.values = complex_test_metric_values,
 	.num_values = ARRAY_SIZE(complex_test_metric_values),
+	.get_num_values = NULL,
 };

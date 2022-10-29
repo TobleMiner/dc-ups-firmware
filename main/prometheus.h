@@ -14,18 +14,35 @@ typedef enum {
 typedef struct prometheus_metric prometheus_metric_t;
 typedef struct prometheus_metric_value prometheus_metric_value_t;
 
+typedef struct prometheus_label {
+	const char *name;
+	const char *value;
+} prometheus_label_t;
+
 struct prometheus_metric_value {
+	/* static labels */
+	unsigned int num_labels;
+	const prometheus_label_t *labels;
+	/* dynamic labels */
 	unsigned int (*get_num_labels)(const prometheus_metric_value_t *val, prometheus_metric_t *metric);
 	void (*get_label)(const prometheus_metric_value_t *val, prometheus_metric_t *metric, unsigned int index, char *label, char *value);
 	void (*get_value)(const prometheus_metric_value_t *val, prometheus_metric_t *metric, char *value);
+	/* dynamic metric values */
+	void *priv;
 };
 
 typedef struct prometheus_metric_def {
 	const char *name;
 	const char *help;
 	prometheus_metric_type_t type;
+
+	/* static values */
 	const prometheus_metric_value_t *values;
 	unsigned int num_values;
+
+	/* dynamic values */
+	unsigned int (*get_num_values)(prometheus_metric_t *metric);
+	void (*get_value)(prometheus_metric_t *metric, unsigned int index, prometheus_metric_value_t *value);
 } prometheus_metric_def_t;
 
 struct prometheus_metric {
