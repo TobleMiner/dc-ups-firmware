@@ -13,28 +13,21 @@ static void get_pack_voltage(const prometheus_metric_value_t *val, prometheus_me
 	sprintf(value, "%01u.%03u", voltage_mv / 1000, voltage_mv % 1000);
 }
 
+static const prometheus_label_t label_cell1 = {
+	.name = "cell",
+	.value = "1"
+};
+
+static const prometheus_label_t label_cell2 = {
+	.name = "cell",
+	.value = "2"
+};
+
 static void get_cell_voltage(const prometheus_metric_value_t *val, prometheus_metric_t *metric, char *value, bq40z50_cell_t cell) {
 	bq40z50_t *gauge = metric->priv;
 	unsigned int voltage_mv = 0;
 	bq40z50_get_cell_voltage_mv(gauge, cell, &voltage_mv);
 	sprintf(value, "%01u.%03u", voltage_mv / 1000, voltage_mv % 1000);
-}
-
-static void get_cell_label(const prometheus_metric_value_t *val, prometheus_metric_t *metric, unsigned int index, char *label, char *value, unsigned int cell) {
-	strcpy(label, "cell");
-	sprintf(value, "%01u", cell);
-}
-
-static unsigned int get_num_labels_cell_voltage(const prometheus_metric_value_t *val, prometheus_metric_t *metric) {
-	return 1;
-}
-
-static void get_cell1_label(const prometheus_metric_value_t *val, prometheus_metric_t *metric, unsigned int index, char *label, char *value) {
-	get_cell_label(val, metric, index, label, value, 1);
-}
-
-static void get_cell2_label(const prometheus_metric_value_t *val, prometheus_metric_t *metric, unsigned int index, char *label, char *value) {
-	get_cell_label(val, metric, index, label, value, 2);
 }
 
 static void get_cell1_voltage(const prometheus_metric_value_t *val, prometheus_metric_t *metric, char *value) {
@@ -47,15 +40,18 @@ static void get_cell2_voltage(const prometheus_metric_value_t *val, prometheus_m
 
 static const prometheus_metric_value_t battery_voltage_values[] = {
 	{
+		.num_labels = 0,
 		.get_num_labels = NULL,
 		.get_value = get_pack_voltage,
 	}, {
-		.get_num_labels = get_num_labels_cell_voltage,
-		.get_label = get_cell1_label,
+		.labels = &label_cell1,
+		.num_labels = 1,
+		.get_num_labels = NULL,
 		.get_value = get_cell1_voltage,
 	}, {
-		.get_num_labels = get_num_labels_cell_voltage,
-		.get_label = get_cell2_label,
+		.labels = &label_cell2,
+		.num_labels = 1,
+		.get_num_labels = NULL,
 		.get_value = get_cell2_voltage,
 	}
 };
@@ -66,6 +62,7 @@ static const prometheus_metric_def_t battery_voltage_metric_def = {
 	.type = PROMETHEUS_METRIC_TYPE_GAUGE,
 	.values = battery_voltage_values,
 	.num_values = ARRAY_SIZE(battery_voltage_values),
+	.get_num_values = NULL,
 };
 
 
@@ -78,6 +75,7 @@ static void get_battery_current(const prometheus_metric_value_t *val, prometheus
 }
 
 static const prometheus_metric_value_t battery_current_value = {
+	.num_labels = 0,
 	.get_num_labels = NULL,
 	.get_value = get_battery_current,
 };
@@ -88,6 +86,7 @@ static const prometheus_metric_def_t battery_current_metric_def = {
 	.type = PROMETHEUS_METRIC_TYPE_GAUGE,
 	.values = &battery_current_value,
 	.num_values = 1,
+	.get_num_values = NULL,
 };
 
 
@@ -100,6 +99,7 @@ static void get_state_of_charge(const prometheus_metric_value_t *val, prometheus
 }
 
 static const prometheus_metric_value_t battery_state_of_charge_value = {
+	.num_labels = 0,
 	.get_num_labels = NULL,
 	.get_value = get_state_of_charge,
 };
@@ -110,6 +110,7 @@ static const prometheus_metric_def_t battery_state_of_charge_metric_def = {
 	.type = PROMETHEUS_METRIC_TYPE_GAUGE,
 	.values = &battery_state_of_charge_value,
 	.num_values = 1,
+	.get_num_values = NULL,
 };
 
 void prometheus_battery_metrics_init(prometheus_battery_metrics_t *metrics, bq40z50_t *gauge) {
