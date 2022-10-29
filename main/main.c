@@ -77,6 +77,7 @@ static smbus_t smbus_bus;
 #define LM75_USB_OUT	2
 
 static lm75_t lm75[3];
+static const char *lm75_names[3] = { "charger", "dc_out", "usb_out" };
 static unsigned int lm75_address[3] = { 0x48, 0x49, 0x4a };
 
 static bq24715_t bq24715;
@@ -131,10 +132,11 @@ void app_main() {
 	i2c_detect(&i2c_bus);
 
 	for (int i = 0; i < ARRAY_SIZE(lm75); i++) {
-		lm75_init(&lm75[i], &i2c_bus, lm75_address[i]);
-		int32_t temp_mdegc = lm75_read_temperature_mdegc(&lm75[i]);
-		if (temp_mdegc < 0) {
-			ESP_LOGI(TAG, "Temperature readout failed on sensor %d", i);
+		lm75_init(&lm75[i], &i2c_bus, lm75_address[i], lm75_names[i]);
+		int32_t temp_mdegc = 0;
+		esp_err_t err = lm75_read_temperature_mdegc(&lm75[i], &temp_mdegc);
+		if (err) {
+			ESP_LOGI(TAG, "Temperature readout failed on sensor %d: %d", i, err);
 		} else {
 			ESP_LOGI(TAG, "Sensor %d: %.2f°C", i, (float)temp_mdegc / 1000.0f);
 		}
@@ -243,9 +245,12 @@ void app_main() {
 		snprintf(display_str, sizeof(display_str), "%04dmA ", current_ma);
 		font_3x5_render_string(display_str, &fb, 17, 36);
 
-		int32_t temp_charger_mdegc = lm75_read_temperature_mdegc(&lm75[LM75_CHARGER]);
-		int32_t temp_dc_out_mdegc = lm75_read_temperature_mdegc(&lm75[LM75_DC_OUT]);
-		int32_t temp_usb_out_mdegc = lm75_read_temperature_mdegc(&lm75[LM75_USB_OUT]);
+		int32_t temp_charger_mdegc = 0;
+		lm75_read_temperature_mdegc(&lm75[LM75_CHARGER], &temp_charger_mdegc);
+		int32_t temp_dc_out_mdegc = 0;
+		lm75_read_temperature_mdegc(&lm75[LM75_DC_OUT], &temp_dc_out_mdegc);
+		int32_t temp_usb_out_mdegc = 0;
+		lm75_read_temperature_mdegc(&lm75[LM75_USB_OUT], &temp_usb_out_mdegc);
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-truncation"
 		snprintf(display_str, sizeof(display_str), "%02dC %02dC %02dC ", temp_charger_mdegc / 1000, temp_dc_out_mdegc / 1000, temp_usb_out_mdegc / 1000);
