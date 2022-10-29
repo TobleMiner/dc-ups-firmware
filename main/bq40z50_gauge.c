@@ -2,6 +2,8 @@
 
 #include <esp_log.h>
 
+#include "util.h"
+
 #define DEFAULT_SMBUS_ADDRESS		0x0b
 
 #define DEVICE_TYPE			0x4500
@@ -76,6 +78,15 @@ static esp_err_t read_mac_word(bq40z50_t *gauge, uint16_t cmd, uint16_t *res) {
 	return ESP_OK;
 }
 
+esp_err_t read_temperature_mdegc(temperature_sensor_t *sensor, int32_t *res) {
+	bq40z50_t *gauge = container_of(sensor, bq40z50_t, sensor);
+	return bq40z50_get_battery_temperature_mdegc(gauge, res);
+}
+
+static const temperature_sensor_ops_t temperature_sensor_ops = {
+	.read_temperature_mdegc = read_temperature_mdegc,
+};
+
 esp_err_t bq40z50_init(bq40z50_t *gauge, smbus_t *bus, int address) {
 	if (address == -1) {
 		address = DEFAULT_SMBUS_ADDRESS;
@@ -94,11 +105,24 @@ esp_err_t bq40z50_init(bq40z50_t *gauge, smbus_t *bus, int address) {
 		return ESP_ERR_INVALID_RESPONSE;
 	}
 
+	temperature_sensor_init(&gauge->sensor, "bq40z50", &temperature_sensor_ops);
+
 	return ESP_OK;
 }
 
 esp_err_t bq40z50_get_battery_voltage_mv(bq40z50_t *gauge, unsigned int *res) {
 	return read_uword(gauge, CMD_VOLTAGE, res);
+}
+
+esp_err_t bq40z50_get_battery_temperature_mdegc(bq40z50_t *gauge, int32_t *res) {
+	unsigned int temperature_0_1k;
+	esp_err_t err = read_uword(gauge, CMD_TEMPERATURE, &temperature_0_1k);
+	if (err) {
+		return err;
+	}
+	int32_t temperature_mdegc = ((int32_t)temperature_0_1k - 2732) * 100;
+	*res = temperature_mdegc;
+	return ESP_OK;
 }
 
 esp_err_t bq40z50_get_cell_voltage_mv(bq40z50_t *gauge, bq40z50_cell_t cell, unsigned int *res) {
@@ -131,3 +155,4 @@ esp_err_t bq40z50_get_charging_current_ma(bq40z50_t *gauge, unsigned int *res) {
 esp_err_t bq40z50_get_charging_voltage_mv(bq40z50_t *gauge, unsigned int *res) {
 	return read_uword(gauge, CMD_CHARGING_VOLTAGE, res);
 }
+
