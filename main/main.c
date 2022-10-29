@@ -18,6 +18,7 @@
 #include "prometheus_exporter.h"
 #include "prometheus_metrics.h"
 #include "prometheus_metrics_battery.h"
+#include "prometheus_metrics_temperature.h"
 #include "ssd1306_oled.h"
 #include "util.h"
 
@@ -83,6 +84,14 @@ static unsigned int lm75_address[3] = { 0x48, 0x49, 0x4a };
 static bq24715_t bq24715;
 static bq40z50_t bq40z50;
 
+static temperature_sensor_t *temperature_sensors[] = {
+	&lm75[LM75_CHARGER].sensor,
+	&lm75[LM75_DC_OUT].sensor,
+	&lm75[LM75_USB_OUT].sensor,
+	&bq40z50.sensor,
+	NULL
+};
+
 #define INA_DC_IN		0
 #define INA_DC_OUT_PASSTHROUGH	1
 #define INA_DC_OUT_STEP_UP	2
@@ -100,6 +109,7 @@ prometheus_t prometheus;
 prometheus_metric_t metric_simple;
 prometheus_metric_t metric_complex;
 prometheus_battery_metrics_t battery_metrics;
+prometheus_temperature_metrics_t temperature_metrics;
 
 static volatile bool do_shutdown = false;
 
@@ -174,6 +184,8 @@ void app_main() {
 	prometheus_add_metric(&prometheus, &metric_complex);
 	prometheus_battery_metrics_init(&battery_metrics, &bq40z50);
 	prometheus_add_battery_metrics(&battery_metrics, &prometheus);
+	prometheus_temperature_metrics_init(&temperature_metrics, temperature_sensors);
+	prometheus_add_temperature_metrics(&temperature_metrics, &prometheus);
 	ESP_ERROR_CHECK(prometheus_register_exporter(&prometheus, &httpd, "/prometheus"));
 
 	unsigned int toggle_gpios[] = { GPIO_HC595_USB_OUT_OFF, GPIO_HC595_DC_OUT1_OFF, GPIO_HC595_DC_OUT2_OFF, GPIO_HC595_DC_OUT3_OFF, GPIO_HC595_DC_OUT_OFF };
