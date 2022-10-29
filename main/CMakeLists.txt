@@ -22,6 +22,7 @@ set(SOURCE_FILES
 	smbus.c
 	ssd1306_oled.c
 	template.c
+	temperature_sensor.c
 	util.c)
 
 idf_component_register(SRCS ${SOURCE_FILES}
