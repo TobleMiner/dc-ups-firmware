@@ -78,13 +78,99 @@ static esp_err_t read_mac_word(bq40z50_t *gauge, uint16_t cmd, uint16_t *res) {
 	return ESP_OK;
 }
 
-esp_err_t read_temperature_mdegc(temperature_sensor_t *sensor, int32_t *res) {
-	bq40z50_t *gauge = container_of(sensor, bq40z50_t, sensor);
-	return bq40z50_get_battery_temperature_mdegc(gauge, res);
+static unsigned int get_num_channels(sensor_t *sensor, sensor_measurement_type_t type) {
+	switch (type) {
+	case SENSOR_TYPE_VOLTAGE:
+		return 3;
+	case SENSOR_TYPE_CURRENT:
+		return 1;
+	case SENSOR_TYPE_POWER:
+		return 1;
+	case SENSOR_TYPE_TEMPERATURE:
+		return 1;
+	default:
+		return 0;
+	}
 }
 
-static const temperature_sensor_ops_t temperature_sensor_ops = {
-	.read_temperature_mdegc = read_temperature_mdegc,
+static const char *get_channel_name(sensor_t *sensor, sensor_measurement_type_t type, unsigned int channel) {
+	switch (type) {
+	case SENSOR_TYPE_VOLTAGE:
+		if (channel == 0) {
+			return "cell1";
+		} else if (channel == 1) {
+			return "cell2";
+		} else {
+			return "pack";
+		}
+	default:
+		return NULL;
+	}
+}
+
+static esp_err_t measure(sensor_t *sensor, sensor_measurement_type_t type, unsigned int channel, long *res) {
+	bq40z50_t *gauge = container_of(sensor, bq40z50_t, sensor);
+	switch (type) {
+	case SENSOR_TYPE_VOLTAGE: {
+		unsigned int voltage_mv;
+		esp_err_t err;
+		if (channel == 0) {
+			err = bq40z50_get_cell_voltage_mv(gauge, BQ40Z50_CELL_1, &voltage_mv);
+		} else if (channel == 1) {
+			err = bq40z50_get_cell_voltage_mv(gauge, BQ40Z50_CELL_2, &voltage_mv);
+		} else {
+			err = bq40z50_get_battery_voltage_mv(gauge, &voltage_mv);
+		}
+		if (err) {
+			return err;
+		}
+		*res = voltage_mv;
+		break;
+	}
+	case SENSOR_TYPE_CURRENT: {
+		int current_ma;
+		esp_err_t err = bq40z50_get_current_ma(gauge, &current_ma);
+		if (err) {
+			return err;
+		}
+		*res = current_ma;
+		break;
+	}
+	case SENSOR_TYPE_POWER:{
+		unsigned int voltage_mv;
+		esp_err_t err = bq40z50_get_battery_voltage_mv(gauge, &voltage_mv);
+		if (err) {
+			return err;
+		}
+		int current_ma;
+		err = bq40z50_get_current_ma(gauge, &current_ma);
+		if (err) {
+			return err;
+		}
+		int64_t power_uw = (int64_t)voltage_mv * (int64_t)current_ma;
+		*res = power_uw / 1000;
+		break;
+	}
+	case SENSOR_TYPE_TEMPERATURE: {
+		int32_t temperature_mdegc;
+		esp_err_t err = bq40z50_get_battery_temperature_mdegc(gauge, &temperature_mdegc);
+		if (err) {
+			return err;
+		}
+		*res = temperature_mdegc;
+		break;
+	}
+	default:
+		return ESP_ERR_INVALID_ARG;
+	}
+
+	return ESP_OK;
+}
+
+static const sensor_def_t sensor_def = {
+	.get_num_channels = get_num_channels,
+	.get_channel_name = get_channel_name,
+	.measure = measure,
 };
 
 esp_err_t bq40z50_init(bq40z50_t *gauge, smbus_t *bus, int address) {
@@ -105,7 +191,8 @@ esp_err_t bq40z50_init(bq40z50_t *gauge, smbus_t *bus, int address) {
 		return ESP_ERR_INVALID_RESPONSE;
 	}
 
-	temperature_sensor_init(&gauge->sensor, "bq40z50", &temperature_sensor_ops);
+	sensor_init(&gauge->sensor, &sensor_def, "bq40z50");
+	sensor_add(&gauge->sensor);
 
 	return ESP_OK;
 }

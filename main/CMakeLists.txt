@@ -18,12 +18,11 @@ set(SOURCE_FILES
 	prometheus_exporter.c
 	prometheus_metrics.c
 	prometheus_metrics_battery.c
-	prometheus_metrics_temperature.c
 	ring.c
+	sensor.c
 	smbus.c
 	ssd1306_oled.c
 	template.c
-	temperature_sensor.c
 	util.c)
 
 idf_component_register(SRCS ${SOURCE_FILES}

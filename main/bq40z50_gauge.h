@@ -3,12 +3,14 @@
 #include <esp_err.h>
 
 #include "smbus.h"
-#include "temperature_sensor.h"
+#include "sensor.h"
+//#include "temperature_sensor.h"
 
 typedef struct bq40z50 {
 	smbus_t *bus;
 	unsigned int address;
-	temperature_sensor_t sensor;
+//	temperature_sensor_t sensor;
+	sensor_t sensor;
 } bq40z50_t;
 
 typedef enum {

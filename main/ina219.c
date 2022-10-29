@@ -49,7 +49,63 @@ static esp_err_t update_bits(ina219_t *ina, unsigned int cmd, unsigned int shift
 	return write_word(ina, cmd, new_value);
 }
 
-esp_err_t ina219_init(ina219_t *ina, smbus_t *bus, unsigned int address, unsigned int shunt_resistance_mohms) {
+static unsigned int get_num_channels(sensor_t *sensor, sensor_measurement_type_t type) {
+	switch (type) {
+	case SENSOR_TYPE_VOLTAGE:
+		return 1;
+	case SENSOR_TYPE_CURRENT:
+		return 1;
+	case SENSOR_TYPE_POWER:
+		return 1;
+	default:
+		return 0;
+	}
+}
+
+static esp_err_t measure(sensor_t *sensor, sensor_measurement_type_t type, unsigned int channel, long *res) {
+	ina219_t *ina = container_of(sensor, ina219_t, sensor);
+	switch (type) {
+	case SENSOR_TYPE_VOLTAGE: {
+		unsigned int voltage_mv;
+		esp_err_t err = ina219_read_bus_voltage_mv(ina, &voltage_mv);
+		if (err) {
+			return err;
+		}
+		*res = voltage_mv;
+		break;
+	}
+	case SENSOR_TYPE_CURRENT: {
+		long current_ua;
+		esp_err_t err = ina219_read_current_ua(ina, &current_ua);
+		if (err) {
+			return err;
+		}
+		*res = current_ua / 1000;
+		break;
+	}
+	case SENSOR_TYPE_POWER:{
+		long power_uw;
+		esp_err_t err = ina219_read_power_uw(ina, &power_uw);
+		if (err) {
+			return err;
+		}
+		*res = power_uw / 1000;
+		break;
+	}
+	default:
+		return ESP_ERR_INVALID_ARG;
+	}
+
+	return ESP_OK;
+}
+
+static const sensor_def_t sensor_def = {
+	.get_num_channels = get_num_channels,
+	.get_channel_name = NULL,
+	.measure = measure,
+};
+
+esp_err_t ina219_init(ina219_t *ina, smbus_t *bus, unsigned int address, unsigned int shunt_resistance_mohms, const char *name) {
 	ina->bus = bus;
 	ina->address = address;
 	ina->shunt_resistance_mohms = shunt_resistance_mohms;
@@ -57,7 +113,11 @@ esp_err_t ina219_init(ina219_t *ina, smbus_t *bus, unsigned int address, unsigne
 	esp_err_t err = ina219_reset(ina);
 	if (err) {
 		ESP_LOGE(TAG, "Failed to reset INA219");
+		return err;
 	}
+	sensor_init(&ina->sensor, &sensor_def, name);
+	sensor_add(&ina->sensor);
+
 	return err;
 }
 

@@ -2,19 +2,45 @@
 
 #include "util.h"
 
-static esp_err_t read_temperature(temperature_sensor_t *sensor, int32_t *res) {
-	lm75_t *lm75 = container_of(sensor, lm75_t, sensor);
-	return lm75_read_temperature_mdegc(lm75, res);
+static unsigned int get_num_channels(sensor_t *sensor, sensor_measurement_type_t type) {
+	switch (type) {
+	case SENSOR_TYPE_TEMPERATURE:
+		return 1;
+	default:
+		return 0;
+	}
 }
 
-const temperature_sensor_ops_t temp_ops = {
-	.read_temperature_mdegc = read_temperature,
+static esp_err_t measure(sensor_t *sensor, sensor_measurement_type_t type, unsigned int channel, long *res) {
+	lm75_t *lm75 = container_of(sensor, lm75_t, sensor);
+	switch (type) {
+	case SENSOR_TYPE_TEMPERATURE: {
+		int32_t temperature_mdegc;
+		esp_err_t err = lm75_read_temperature_mdegc(lm75, &temperature_mdegc);
+		if (err) {
+			return err;
+		}
+		*res = temperature_mdegc;
+		break;
+	}
+	default:
+		return ESP_ERR_INVALID_ARG;
+	}
+
+	return ESP_OK;
+}
+
+static const sensor_def_t sensor_def = {
+	.get_num_channels = get_num_channels,
+	.get_channel_name = NULL,
+	.measure = measure,
 };
 
 void lm75_init(lm75_t *lm75, i2c_bus_t *bus, unsigned int address, const char *name) {
 	lm75->bus = bus;
 	lm75->address = address;
-	temperature_sensor_init(&lm75->sensor, name, &temp_ops);
+	sensor_init(&lm75->sensor, &sensor_def, name);
+	sensor_add(&lm75->sensor);
 }
 
 esp_err_t lm75_read_temperature_mdegc(lm75_t *lm75, int32_t *res) {

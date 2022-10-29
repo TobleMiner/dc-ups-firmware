@@ -6,13 +6,13 @@
 #include <esp_err.h>
 
 #include "i2c_bus.h"
-#include "temperature_sensor.h"
+#include "sensor.h"
 
 typedef struct lm75 {
 	uint8_t address;
 	i2c_bus_t *bus;
 	uint8_t xfers[I2C_LINK_RECOMMENDED_SIZE(4)];
-	temperature_sensor_t sensor;
+	sensor_t sensor;
 } lm75_t;
 
 void lm75_init(lm75_t *lm75, i2c_bus_t *bus, unsigned int address, const char *name);
