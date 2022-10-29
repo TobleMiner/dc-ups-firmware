@@ -13,6 +13,9 @@ struct list_head {
 #define INIT_LIST_HEAD(name) \
 	(name) = (struct list_head){ &(name), &(name) }
 
+#define DECLARE_LIST_HEAD(name) \
+	list_head_t name = (struct list_head){ &(name), &(name) }
+
 #define LIST_FOR_EACH(cursor, list) \
 	for((cursor) = (list)->next; (cursor) != (list); (cursor) = (cursor)->next)
 
