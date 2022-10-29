@@ -4,8 +4,6 @@
 #include "prometheus.h"
 
 typedef struct prometheus_battery_metrics {
-	prometheus_metric_t voltage;
-	prometheus_metric_t current;
 	prometheus_metric_t state_of_charge;
 } prometheus_battery_metrics_t;
 

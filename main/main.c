@@ -175,6 +175,7 @@ void app_main() {
 	prometheus_metric_init(&metric_complex, &complex_test_metric_def, NULL);
 	prometheus_add_metric(&prometheus, &metric_complex);
 	prometheus_battery_metrics_init(&battery_metrics, &bq40z50);
+	prometheus_add_battery_metrics(&battery_metrics, &prometheus);
 	sensor_install_metrics(&prometheus);
 	ESP_ERROR_CHECK(prometheus_register_exporter(&prometheus, &httpd, "/prometheus"));
 
