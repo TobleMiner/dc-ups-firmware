@@ -345,7 +345,7 @@ static esp_err_t template_variable_cb(void* ctx, void* priv, struct templ_slice*
 
   if (!slice_ctx->parent) {
     printf("Can't use variable template without parent!\n");
-    return ESP_ERR_INVALID_ARG;    
+    return ESP_ERR_INVALID_ARG;
   }
 
   value = slice_scope_get_variable(slice_ctx, name_arg->value);
