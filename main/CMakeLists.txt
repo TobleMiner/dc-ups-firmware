@@ -24,7 +24,8 @@ set(SOURCE_FILES
 	ssd1306_oled.c
 	template.c
 	util.c
-	website.c)
+	website.c
+	wifi.c)
 
 idf_component_register(SRCS ${SOURCE_FILES}
                        INCLUDE_DIRS ".")

@@ -22,6 +22,7 @@
 #include "ssd1306_oled.h"
 #include "util.h"
 #include "website.h"
+#include "wifi.h"
 
 #define GPIO_HC595_DC_OUT3_OFF	1
 #define GPIO_HC595_DC_OUT_TEST	2
@@ -123,6 +124,9 @@ void app_main() {
 	ESP_ERROR_CHECK(esp_vfs_spiffs_register(&spiffs_conf));
 
 	ESP_ERROR_CHECK(ethernet_init(&ethernet_cfg));
+
+	wifi_init();
+	wifi_start_ap();
 
 	ESP_ERROR_CHECK(spi_bus_initialize(SPI_HC595, &hc595_spi_bus_cfg, SPI_DMA_DISABLED));
 	ESP_ERROR_CHECK(gpio_hc595_init(&hc595, SPI_HC595, GPIO_HC595_LATCH));
