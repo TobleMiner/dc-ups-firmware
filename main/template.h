@@ -9,7 +9,7 @@
 #define TEMPLATE_ID_PREFIX "{{"
 #define TEMPLATE_ID_SUFFIX "}}"
 
-#define TEMPLATE_MAX_ARG_LEN 128
+#define TEMPLATE_MAX_ARG_LEN 200
 #define TEMPLATE_BUFF_SIZE 256
 
 struct templ {
