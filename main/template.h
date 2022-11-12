@@ -6,8 +6,8 @@
 #include "list.h"
 
 #define TEMPLATE_ID_LEN_DEFAULT 16
-#define TEMPLATE_ID_PREFIX "[/{"
-#define TEMPLATE_ID_SUFFIX "}/]"
+#define TEMPLATE_ID_PREFIX "{{"
+#define TEMPLATE_ID_SUFFIX "}}"
 
 #define TEMPLATE_MAX_ARG_LEN 128
 #define TEMPLATE_BUFF_SIZE 256
