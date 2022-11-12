@@ -23,7 +23,8 @@ set(SOURCE_FILES
 	smbus.c
 	ssd1306_oled.c
 	template.c
-	util.c)
+	util.c
+	website.c)
 
 idf_component_register(SRCS ${SOURCE_FILES}
                        INCLUDE_DIRS ".")

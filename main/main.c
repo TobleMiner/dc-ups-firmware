@@ -21,6 +21,7 @@
 #include "sensor.h"
 #include "ssd1306_oled.h"
 #include "util.h"
+#include "website.h"
 
 #define GPIO_HC595_DC_OUT3_OFF	1
 #define GPIO_HC595_DC_OUT_TEST	2
@@ -169,6 +170,7 @@ void app_main() {
 	}
 
 	ESP_ERROR_CHECK(httpd_init(&httpd, "/webroot", 32));
+	website_init(&httpd);
 	prometheus_init(&prometheus);
 	prometheus_metric_init(&metric_simple, &test_metric_def, NULL);
 	prometheus_add_metric(&prometheus, &metric_simple);

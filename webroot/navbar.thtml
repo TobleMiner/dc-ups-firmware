@@ -1,0 +1,26 @@
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="/index.thtml">DC UPS</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-lab>
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+          <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+            <li class="nav-item">
+              <a class="nav-link {{navbar.active,match=dcin}}" aria-current="page" href="/dcin.thtml">DC input</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{navbar.active,match=dcout}}" href="/dcout.thtml">DC output</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{navbar.active,match=usbout}}" href="/usbout.thtml">USB output</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{navbar.active,match=battery}}" href="/battery.thtml">Battery</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {{navbar.active,match=network}}" href="/network.thtml">Network</a>
+            </li>
+          </div>
+      </div>
+    </nav>

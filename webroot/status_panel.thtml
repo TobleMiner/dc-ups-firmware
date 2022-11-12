@@ -1,0 +1,27 @@
+        <div class="col d-flex align-items-stretch">
+          <div class="card mb-3 w-100">
+            <div class="card-body d-flex flex-column">
+              <h5 class="card-title">{{variable,name=status_panel_title}}</h5>
+              <table class="table table-borderless js-status-panel js-status-panel-id-{{variable,name=status_panel_id}} mb-1">
+                <tbody>
+                  <tr>
+                    <td>Voltage:</td>
+                    <td class="js-status-panel-voltage">{{status_panel.voltage}}</td>
+                  </tr>
+                  <tr>
+                    <td>Current:</td>
+                    <td class="js-status-panel-current">{{status_panel.current}}</td>
+                  </tr>
+                  <tr>
+                    <td>Power:</td>
+                    <td class="js-status-panel-power">{{status_panel.power}}</td>
+                  </tr>
+                  <tr>
+                    <td>Temperature:</td>
+                    <td class="js-status-panel-temperature">{{status_panel.temperature}}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
