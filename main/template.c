@@ -5,11 +5,14 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#include "esp_err.h"
+#include <esp_err.h>
+#include <esp_log.h>
 
 #include "template.h"
 #include "ring.h"
 #include "util.h"
+
+static const char *TAG = "template";
 
 void template_init(struct templ* templ) {
   INIT_LIST_HEAD(templ->templates);
@@ -18,6 +21,7 @@ void template_init(struct templ* templ) {
 static esp_err_t template_alloc_slice(struct templ_slice** retval) {
   struct templ_slice* slice = calloc(1, sizeof(struct templ_slice));
   if(!slice) {
+    ESP_LOGE(TAG, "Failed to allocate slice, out of memory");
     return ESP_ERR_NO_MEM;
   }
 
@@ -70,18 +74,21 @@ static esp_err_t template_alloc_slice_arg(struct templ_slice_arg** retval, char*
   esp_err_t err;
   struct templ_slice_arg* arg = calloc(1, sizeof(struct templ_slice_arg));
   if(!arg) {
+    ESP_LOGE(TAG, "Failed to allocate slice, out of memory");
     err = ESP_ERR_NO_MEM;
     goto fail;
   }
 
   arg->key = strdup(key);
   if(!arg->key) {
+    ESP_LOGE(TAG, "Failed to allocate slice arg key");
     err = ESP_ERR_NO_MEM;
     goto fail_arg_alloc;
   }
 
   arg->value = strdup(value);
   if(!arg->value) {
+    ESP_LOGE(TAG, "Failed to allocate slice arg value");
     err = ESP_ERR_NO_MEM;
     goto fail_key_alloc;
   }
@@ -150,6 +157,7 @@ esp_err_t template_alloc_instance_fd(struct templ_instance** retval, struct temp
   struct list_head* cursor, *next;
   struct templ_instance* instance = calloc(1, sizeof(struct templ_instance));
   if(!instance) {
+    ESP_LOGE(TAG, "Failed to allocate template for fd, out of memory");
     err = ESP_ERR_NO_MEM;
     goto fail;
   }
@@ -206,6 +214,7 @@ next:
 
               // Argument list too long
               if(data_len < arg_len) {
+                ESP_LOGE(TAG, "Template argument list too long");
                 err = ESP_ERR_INVALID_ARG;
                 goto fail_slices;
               }
@@ -291,6 +300,7 @@ esp_err_t template_add(struct templ* templ, char* id, templ_cb cb, prepare_cb pr
   size_t buff_len;
   struct templ_entry* entry = calloc(1, sizeof(struct templ_entry));
   if(!entry) {
+    ESP_LOGE(TAG, "Failed to allocate template entry, out of memory");
     err = ESP_ERR_NO_MEM;
     goto fail;
   }
@@ -302,6 +312,7 @@ esp_err_t template_add(struct templ* templ, char* id, templ_cb cb, prepare_cb pr
   buff_len = strlen(TEMPLATE_ID_PREFIX) + strlen(id) + 1;
   entry->id = calloc(1, buff_len);
   if(!entry->id) {
+    ESP_LOGE(TAG, "Failed to allocate template entry id, out of memory");
     err = ESP_ERR_NO_MEM;
     goto fail_entry_alloc;
   }
@@ -359,6 +370,7 @@ esp_err_t template_apply_fd(struct templ_instance* instance, int fd, templ_write
         goto fail;
       }
       if(read_len == 0) {
+        ESP_LOGW(TAG, "Unexpected EOF during template rendering");
         err = ESP_ERR_INVALID_ARG;
         goto fail;
       }
@@ -380,6 +392,7 @@ esp_err_t template_apply_fd(struct templ_instance* instance, int fd, templ_write
           goto fail;
         }
         if(read_len == 0) {
+          ESP_LOGW(TAG, "Unexpected EOF during template rendering");
           err = ESP_ERR_INVALID_ARG;
           goto fail;
         }
