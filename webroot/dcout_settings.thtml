@@ -1,0 +1,11 @@
+        <div class="col d-flex align-items-stretch">
+          <div class="card mb-3">
+            <div class="card-body d-flex flex-column">
+              <h5 class="card-title">DC output {{variable,name=output}}</h5>
+              <div class="form-check form-switch">
+                <input class="form-check-input js-output-enable-{{variable,name=output}}" type="checkbox" id="enable-output-switch-{{variable,name=output}}" {{dcout.enabled}}>
+                <label class="form-check-label" for="enable-output-switch-{{variable,name=output}}">Enable output</label>
+              </div>
+            </div>
+          </div>
+        </div>

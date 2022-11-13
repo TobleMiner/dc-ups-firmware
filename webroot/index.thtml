@@ -33,11 +33,11 @@
             </div>
           </div>
         </div>
-        {{include,file=status_panel.thtml,status_panel_title=DC input,status_panel_id=dcin}}
+        {{include,file=status_panel.thtml,status_panel_title=DC input,status_panel_id=dcin,lm75=lm75_charger,ina=ina_dc_in}}
       </div>
       <div class="row">	
-        {{include,file=status_panel.thtml,status_panel_title=DC output,status_panel_id=dcout}}
-        {{include,file=status_panel.thtml,status_panel_title=USB output,status_panel_id=usbout}}
+        {{include,file=status_panel.thtml,status_panel_title=DC output,status_panel_id=dcout,lm75=lm75_dc_out,ina=ina_dc_out}}
+        {{include,file=status_panel.thtml,status_panel_title=USB output,status_panel_id=usbout,lm75=lm75_usb_out,ina=ina_usb_out}}
       </div>
     </div>
 </body>

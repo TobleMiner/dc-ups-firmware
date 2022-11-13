@@ -10,21 +10,19 @@
     {{include,file=navbar.thtml}}
     <div class="container mt-2">
       <div class="row">
-        {{include,file=status_panel.thtml,status_panel_title=DC input,status_panel_id=dcin}}
-      </div>
-      <div class="row">
+        {{include,file=status_panel.thtml,status_panel_title=DC input,status_panel_id=dcin,lm75=lm75_charger,ina=ina_dc_in}}
         <div class="col d-flex align-items-stretch">
           <div class="card mb-3 w-100">
             <div class="card-body d-flex flex-column">
               <h5 class="card-title">Input settings</h5>
-              <table class="table table-borderless mb-1">
-                <tbody>
-                  <tr>
-                    <td>Input current limit:</td>
-                    <td class="js-input-current-limit">--</td>
-                  </tr>
-                </tbody>
-              </table>
+              <form class="js-charge-current-form mb-1">
+                <div class="input-group">
+                  <span class="input-group-text">Current limit</span>
+                  <input type="number" min="256" max="5000" class="form-control js-input-current" aria-label="">
+                  <span class="input-group-text">mA</span>
+                  <button class="btn btn-primary btn-outline-primary text-white" type="submit">Set</button>
+                </div>
+              </form>
             </div>
           </div>
         </div>

@@ -14,6 +14,7 @@ set(SOURCE_FILES
 	magic.c
 	main.c
 	mime.c
+	power_path.c
 	prometheus.c
 	prometheus_exporter.c
 	prometheus_metrics.c
