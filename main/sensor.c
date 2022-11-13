@@ -149,3 +149,14 @@ void sensor_install_metrics(prometheus_t *prometheus) {
 void sensor_add(sensor_t *sensor) {
 	LIST_APPEND_TAIL(&sensor->list, &sensors);
 }
+
+sensor_t *sensor_find_by_name(const char *name) {
+	sensor_t *sensor;
+	LIST_FOR_EACH_ENTRY(sensor, &sensors, list) {
+		if (strcmp(sensor->name, name) == 0) {
+			return sensor;
+		}
+	}
+
+	return NULL;
+}
