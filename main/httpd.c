@@ -113,6 +113,7 @@ static esp_err_t static_template_file_get_handler(httpd_req_t* req) {
 
   err = template_send(&slice_ctx, hndlr);
   if (err) {
+    httpd_send_error_msg(&ctx, HTTPD_500, "Failed to render template");
     goto fail;
   }
 
