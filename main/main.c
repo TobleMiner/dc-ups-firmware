@@ -80,7 +80,7 @@ static smbus_t smbus_bus;
 #define LM75_USB_OUT	2
 
 static lm75_t lm75[3];
-static const char *lm75_names[3] = { "charger", "dc_out", "usb_out" };
+static const char *lm75_names[3] = { "lm75_charger", "lm75_dc_out", "lm75_usb_out" };
 static unsigned int lm75_address[3] = { 0x48, 0x49, 0x4a };
 
 static bq24715_t bq24715;
@@ -93,7 +93,7 @@ static bq40z50_t bq40z50;
 
 static ina219_t ina[4];
 static unsigned int ina_address[4] = { 0x40, 0x41, 0x42, 0x43 };
-static const char *ina_names[4] = { "dc_in", "dc_out_passthrough", "dc_out_step_up", "usb_out" };
+static const char *ina_names[4] = { "ina_dc_in", "ina_dc_out_passthrough", "ina_dc_out_step_up", "ina_usb_out" };
 
 static ssd1306_oled_t oled;
 static fb_t fb;
