@@ -170,7 +170,7 @@ static esp_err_t measure(sensor_t *sensor, sensor_measurement_type_t type, unsig
 static const sensor_def_t sensor_def = {
 	.get_num_channels = get_num_channels,
 	.get_channel_name = get_channel_name,
-	.measure = measure,
+	.measure = measure
 };
 
 esp_err_t bq40z50_init(bq40z50_t *gauge, smbus_t *bus, int address) {

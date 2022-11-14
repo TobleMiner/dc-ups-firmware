@@ -8,6 +8,10 @@
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof(*(arr)))
 #endif
 
+#ifndef alignof
+#define alignof(x) __alignof__(x)
+#endif
+
 #define paddr__(x) ((uint32_t)(x))
 
 #ifndef BIT

@@ -8,6 +8,7 @@
 
 #include "bq24715_charger.h"
 #include "bq40z50_gauge.h"
+#include "callcache.h"
 #include "ethernet.h"
 #include "font_3x5.h"
 #include "gpio_hc595.h"
@@ -15,6 +16,7 @@
 #include "i2c_bus.h"
 #include "ina219.h"
 #include "lm75.h"
+#include "memcache.h"
 #include "prometheus_exporter.h"
 #include "prometheus_metrics.h"
 #include "prometheus_metrics_battery.h"
@@ -118,7 +120,32 @@ static void button_pressed(void *_) {
 	do_shutdown = true;
 }
 
+void memcache_callback(kvstore_entry_t *entry) {
+	switch (entry->type) {
+	case KVSTORE_ENTRY_TYPE_INT: {
+		long long value = memcache_get_int(entry);
+		ESP_LOGI(TAG, "memcache update: %s=%lld", entry->key, value);
+		break;
+	}
+	case KVSTORE_ENTRY_TYPE_STRING: {
+		char *str = memcache_get_string(entry);
+		ESP_LOGI(TAG, "memcache update: %s=%s", entry->key, str);
+		free(str);
+		break;
+	}
+	}
+}
+
 void app_main() {
+	callcache_test();
+
+	ESP_ERROR_CHECK(memcache_init());
+
+	memcache_listener_t memcache_listener = {
+		.callback = memcache_callback,
+	};
+	memcache_subscribe(&memcache_listener);
+
 	ESP_ERROR_CHECK(gpio_install_isr_service(0));
 
 	ESP_ERROR_CHECK(esp_vfs_spiffs_register(&spiffs_conf));

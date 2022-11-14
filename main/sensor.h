@@ -3,15 +3,23 @@
 #include <esp_err.h>
 
 #include "list.h"
+#include "memcache.h"
 #include "prometheus.h"
 
 #define SENSOR_CHANNEL_NAME_LEN	64
+#define SENSOR_MEMCACHE_KEY_LEN	32
+
+typedef struct sensor_memcache_entry {
+	char memcache_key_string[SENSOR_MEMCACHE_KEY_LEN];
+	memcache_entry_t entry;
+	bool initialized;
+} sensor_memcache_entry_t;
 
 typedef enum {
 	SENSOR_TYPE_VOLTAGE	= 0,
 	SENSOR_TYPE_CURRENT	= 1,
 	SENSOR_TYPE_POWER	= 2,
-	SENSOR_TYPE_TEMPERATURE	= 3,
+	SENSOR_TYPE_TEMPERATURE	= 3
 } sensor_measurement_type_t;
 
 typedef struct sensor sensor_t;
@@ -20,6 +28,7 @@ typedef struct sensor_def {
 	unsigned int (*get_num_channels)(sensor_t *sensor, sensor_measurement_type_t type);
 	const char *(*get_channel_name)(sensor_t *sensor, sensor_measurement_type_t type, unsigned int index);
 	esp_err_t (*measure)(sensor_t *sensor, sensor_measurement_type_t type, unsigned int index, long *res);
+	sensor_memcache_entry_t *(*get_memcache_entry)(sensor_t *sensor, sensor_measurement_type_t type, unsigned int index);
 } sensor_def_t;
 
 struct sensor {
@@ -32,10 +41,7 @@ void sensor_init(sensor_t *sensor, const sensor_def_t *def, const char *name);
 void sensor_install_metrics(prometheus_t *prometheus);
 void sensor_add(sensor_t *sensor);
 sensor_t *sensor_find_by_name(const char *name);
-
-static inline esp_err_t sensor_measure(sensor_t *sensor, sensor_measurement_type_t type, unsigned int index, long *res) {
-	return sensor->def->measure(sensor, type, index, res);
-}
+esp_err_t sensor_measure(sensor_t *sensor, sensor_measurement_type_t type, unsigned int index, long *res);
 
 static inline esp_err_t sensor_measure_voltage(sensor_t *sensor, unsigned int index, long *res) {
 	return sensor->def->measure(sensor, SENSOR_TYPE_VOLTAGE, index, res);

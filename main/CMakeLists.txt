@@ -1,6 +1,7 @@
 set(SOURCE_FILES
 	bq24715_charger.c
 	bq40z50_gauge.c
+	callcache.c
 	delay.c
 	ethernet.c
 	font_3x5.c
@@ -10,9 +11,11 @@ set(SOURCE_FILES
 	i2c_bus.c
 	ina219.c
 	kvparser.c
+	kvstore.c
 	lm75.c
 	magic.c
 	main.c
+	memcache.c
 	mime.c
 	power_path.c
 	prometheus.c

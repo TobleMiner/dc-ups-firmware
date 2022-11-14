@@ -66,13 +66,35 @@ static void get_label(const prometheus_metric_value_t *val, prometheus_metric_t 
 	}
 }
 
+static void update_memcache_entry(sensor_t *sensor, sensor_measurement_type_t type, unsigned int channel, long value) {
+	if (!sensor->def->get_memcache_entry) {
+		return;
+	}
+
+	sensor_memcache_entry_t *entry = sensor->def->get_memcache_entry(sensor, type, channel);
+	if (entry) {
+		if (entry->initialized) {
+			memcache_update_entry_int(&entry->entry, value, NULL);
+		} else {
+			snprintf(entry->memcache_key_string, sizeof(entry->memcache_key_string),
+				 "%s_%u.%u", sensor->name, type, channel);
+			esp_err_t err = memcache_add_entry_int(&entry->entry, entry->memcache_key_string, false, value);
+			if (err) {
+				ESP_LOGE(TAG, "Failed to add memcache entry: %d (0x%03x)", err, err);
+			} else {
+				entry->initialized = true;
+			}
+		}
+	}
+}
+
 static void get_value(const prometheus_metric_value_t *val, prometheus_metric_t *metric, char *value) {
 	unsigned int value_index = VALUE_PRIV_INDEX(val->priv);
 	sensor_measurement_type_t type = VALUE_PRIV_TYPE(val->priv);
 	unsigned int channel;
 	sensor_t *sensor = get_sensor_and_channel_by_type_and_index(type, value_index, &channel);
 	long res;
-	esp_err_t err = sensor->def->measure(sensor, type, channel, &res);
+	esp_err_t err = sensor_measure(sensor, type, channel, &res);
 	if (err) {
 		ESP_LOGE(TAG, "Failed to read %u channel %u of sensor %s", type, channel, sensor->name);
 	} else {
@@ -159,4 +181,12 @@ sensor_t *sensor_find_by_name(const char *name) {
 	}
 
 	return NULL;
+}
+
+esp_err_t sensor_measure(sensor_t *sensor, sensor_measurement_type_t type, unsigned int index, long *res) {
+	esp_err_t err = sensor->def->measure(sensor, type, index, res);
+	if (!err) {
+		update_memcache_entry(sensor, type, index, *res);
+	}
+	return err;
 }
