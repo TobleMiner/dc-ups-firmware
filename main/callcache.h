@@ -35,29 +35,10 @@ typedef struct callcache_callee {
 	bool (*is_call_arg_cacheable)(callcache_call_arg_t *arg, unsigned int pos);
 } callcache_callee_t;
 
-typedef struct callcache_stored_call_arg {
-	unsigned int pos;
-	callcache_call_arg_type_t type;
-	union {
-		int int_val;
-		unsigned int uint_val;
-		unsigned long string_offset;
-		void *ptr_val;
-		struct {
-			unsigned long data_offset;
-			size_t len;
-		} blob;
-	} value;
-} callcache_stored_call_arg_t;
-
-typedef struct callcache_stored_call_arg_header {
-	unsigned int num_stored_args;
-	unsigned long stored_arg_offset[0];
-} callcache_stored_call_arg_header_t;
-
 typedef struct callcache_entry {
 	list_head_t list;
 	callcache_callee_t *callee;
+	unsigned char serialized_call[0];
 } callcache_entry_t;
 
 typedef struct callcache {

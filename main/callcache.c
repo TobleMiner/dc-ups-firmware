@@ -8,9 +8,6 @@
 
 static const char *TAG = "callcache";
 
-#define ALIGN_UP_PTR(ptr_, align_) \
-	((__typeof__(ptr_))ALIGN_UP((unsigned long)(ptr_), (unsigned long)(align_)))
-
 static size_t callcache_serialize_write_uint_raw(unsigned char **ptr, unsigned long long val) {
 	size_t len = 0;
 	if (ptr) {
@@ -140,7 +137,7 @@ static size_t callcache_serialize_arg_tiny(callcache_call_arg_t *call_arg, unsig
 	return len;
 }
 
-size_t callcache_serialize_tiny_(callcache_callee_t *callee, callcache_call_arg_t *call_args, unsigned int num_call_args, unsigned char **ptr) {
+static size_t callcache_serialize_tiny_(callcache_callee_t *callee, callcache_call_arg_t *call_args, unsigned int num_call_args, unsigned char **ptr) {
 	/* Dual pass serialization */
 	/* Count number of args to serialize first */
 	unsigned int num_cacheable_args = 0;
@@ -233,94 +230,6 @@ void callcache_deserialize_iterator_next(callcache_deserialize_iterator_t *iter,
 }
 
 
-static size_t callcache_serialize_arg(callcache_call_arg_t *call_arg, unsigned char **ptr) {
-	size_t len = sizeof(callcache_stored_call_arg_t);
-	if (call_arg->type == CALLCACHE_CALL_ARG_TYPE_STRING) {
-		len += alignof(char *);
-		len += strlen(call_arg->value.string_val) + 1;
-	}
-	if (call_arg->type == CALLCACHE_CALL_ARG_TYPE_BLOB) {
-		len += alignof(void *);
-		len += call_arg->value.blob_val.len;
-	}
-
-	if (ptr) {
-		unsigned char *serialize_ptr = *ptr;
-		callcache_stored_call_arg_t *stored_arg = (void *)serialize_ptr;
-		serialize_ptr += sizeof(callcache_stored_call_arg_t);
-		stored_arg->type = call_arg->type;
-		switch (stored_arg->type) {
-		case CALLCACHE_CALL_ARG_TYPE_INT:
-			stored_arg->value.int_val = call_arg->value.int_val;
-			break;
-		case CALLCACHE_CALL_ARG_TYPE_UINT:
-			stored_arg->value.uint_val = call_arg->value.uint_val;
-			break;
-		case CALLCACHE_CALL_ARG_TYPE_PTR:
-			stored_arg->value.ptr_val = call_arg->value.ptr_val;
-			break;
-		case CALLCACHE_CALL_ARG_TYPE_STRING:
-			serialize_ptr = ALIGN_UP_PTR(serialize_ptr, alignof(char *));
-			strcpy((char *)serialize_ptr, call_arg->value.string_val);
-			stored_arg->value.string_offset = serialize_ptr - ((unsigned char *)stored_arg);
-			serialize_ptr += strlen(call_arg->value.string_val);
-			break;
-		case CALLCACHE_CALL_ARG_TYPE_BLOB:
-			serialize_ptr = ALIGN_UP_PTR(serialize_ptr, alignof(void *));
-			memcpy(serialize_ptr, call_arg->value.blob_val.data, call_arg->value.blob_val.len);
-			stored_arg->value.blob.data_offset = serialize_ptr - ((unsigned char *)stored_arg);
-			stored_arg->value.blob.len = call_arg->value.blob_val.len;
-			serialize_ptr += call_arg->value.blob_val.len;
-			break;
-		}
-		*ptr = serialize_ptr;
-	}
-	return len;
-}
-
-size_t callcache_serialize(callcache_callee_t *callee, callcache_call_arg_t *call_args, unsigned int num_call_args, void *data) {
-	unsigned char *data8 = data;
-	size_t len = sizeof(callcache_stored_call_arg_header_t);
-	len += offsetof(callcache_stored_call_arg_header_t, stored_arg_offset);
-
-	callcache_stored_call_arg_header_t *header_ptr = (void *)ALIGN_UP_PTR(data8, alignof(callcache_stored_call_arg_header_t));
-	unsigned int num_cacheable_args = 0;
-	if (callee->is_call_arg_cacheable) {
-		for (unsigned int arg = 0; arg < num_call_args; arg++) {
-			callcache_call_arg_t *call_arg = &call_args[arg];
-			if (callee->is_call_arg_cacheable(call_arg, arg)) {
-				num_cacheable_args++;
-			}
-		}
-	} else {
-		num_cacheable_args = num_call_args;
-	}
-	if (data) {
-		header_ptr->num_stored_args = num_cacheable_args;
-	}
-	len += sizeof(unsigned long) * num_cacheable_args;
-
-	unsigned char *serialize_ptr = ((unsigned char *)data8) + len;
-	unsigned int arg_cache_index = 0;
-	for (unsigned int arg = 0; arg < num_call_args; arg++) {
-		len += alignof(callcache_stored_call_arg_t);
-		serialize_ptr = ALIGN_UP_PTR(serialize_ptr, alignof(callcache_stored_call_arg_t));
-		callcache_call_arg_t *call_arg = &call_args[arg];
-		if (callee->is_call_arg_cacheable && !callee->is_call_arg_cacheable(call_arg, arg)) {
-			continue;
-		}
-
-		if (data) {
-			header_ptr->stored_arg_offset[arg_cache_index++] = serialize_ptr - data8;
-			len += callcache_serialize_arg(call_arg, &serialize_ptr);
-		} else {
-			len += callcache_serialize_arg(call_arg, NULL);
-		}
-	}
-
-	return len;
-}
-
 static callcache_callee_t test_callee = {
 	NULL,
 	NULL
@@ -356,12 +265,6 @@ void callcache_test() {
 			}
 		},
 	};
-
-	size_t buffer_len = callcache_serialize(&test_callee, call_args, ARRAY_SIZE(call_args), NULL);
-	ESP_LOGI(TAG, "Serialized call size: %zu bytes\n", buffer_len);
-	char *buf = malloc(buffer_len);
-	callcache_serialize(&test_callee, call_args, ARRAY_SIZE(call_args), buf);
-	ESP_LOG_BUFFER_HEX(TAG, buf, buffer_len);
 
 	size_t buffer_len_tiny = callcache_serialize_tiny(&test_callee, call_args, ARRAY_SIZE(call_args), NULL);
 	ESP_LOGI(TAG, "Serialized call size (tiny): %zu bytes\n", buffer_len_tiny);
