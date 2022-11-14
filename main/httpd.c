@@ -843,9 +843,7 @@ esp_err_t httpd_add_handler(struct httpd* httpd, httpd_method_t method, const ch
   hndlr->handler.uri_handler.user_ctx = hndlr;
   hndlr->handler.uri_handler.method = method;
   hndlr->handler.uri_handler.uri = uri;
-#if 0
   hndlr->handler.uri_handler.is_websocket = websocket;
-#endif
 
   hndlr->required_keys = calloc(num_param + 1, sizeof(char*));
   if(!hndlr->required_keys) {
