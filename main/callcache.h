@@ -2,6 +2,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #include <esp_err.h>
 
@@ -31,13 +32,15 @@ typedef struct callcache_call_arg {
 } callcache_call_arg_t;
 
 typedef struct callcache_callee {
-	esp_err_t (*call)(callcache_call_arg_t *args, unsigned int num_args);
+	esp_err_t (*call)(callcache_call_arg_t *args, unsigned int num_args, callcache_call_arg_t *return_values, unsigned int *num_return_val, int64_t *cache_ttl_us);
 	bool (*is_call_arg_cacheable)(callcache_call_arg_t *arg, unsigned int pos);
 } callcache_callee_t;
 
 typedef struct callcache_entry {
 	list_head_t list;
-	callcache_callee_t *callee;
+	const callcache_callee_t *callee;
+	int64_t ttl_us;
+	size_t buffer_len;
 	unsigned char serialized_call[0];
 } callcache_entry_t;
 
@@ -45,4 +48,5 @@ typedef struct callcache {
 	list_head_t entries;
 } callcache_t;
 
-void callcache_test(void);
+void callcache_init();
+esp_err_t callcache_call(const callcache_callee_t *callee, callcache_call_arg_t *args, unsigned int num_args, callcache_call_arg_t *return_values, unsigned int *num_return_val);

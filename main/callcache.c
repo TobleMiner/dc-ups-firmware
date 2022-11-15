@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include <esp_log.h>
+#include <esp_timer.h>
 
 #include "util.h"
 
@@ -137,7 +138,7 @@ static size_t callcache_serialize_arg_tiny(callcache_call_arg_t *call_arg, unsig
 	return len;
 }
 
-static size_t callcache_serialize_tiny_(callcache_callee_t *callee, callcache_call_arg_t *call_args, unsigned int num_call_args, unsigned char **ptr) {
+static size_t callcache_serialize_tiny(const callcache_callee_t *callee, callcache_call_arg_t *call_args, unsigned int num_call_args, unsigned char **ptr) {
 	/* Dual pass serialization */
 	/* Count number of args to serialize first */
 	unsigned int num_cacheable_args = 0;
@@ -164,17 +165,6 @@ static size_t callcache_serialize_tiny_(callcache_callee_t *callee, callcache_ca
 	}
 
 	return len;
-}
-
-size_t callcache_serialize_tiny(callcache_callee_t *callee, callcache_call_arg_t *call_args, unsigned int num_call_args, void *data) {
-	if (data) {
-		unsigned char *serialize_ptr = data;
-		size_t len = callcache_serialize_tiny_(callee, call_args, num_call_args, &serialize_ptr);
-		ESP_LOGI(TAG, "Reported number of bytes written: %zu, pointer offset: %lu", len, (unsigned long)(serialize_ptr - (unsigned char *)data));
-		return len;
-	} else {
-		return callcache_serialize_tiny_(callee, call_args, num_call_args, NULL);
-	}
 }
 
 unsigned int callcache_deserialize_get_num_args(void *data) {
@@ -225,77 +215,192 @@ void callcache_deserialize_iterator_first(callcache_deserialize_iterator_t *iter
 }
 
 void callcache_deserialize_iterator_next(callcache_deserialize_iterator_t *iter, callcache_call_arg_t *call_arg) {
-	callcache_deserialize_iterator_get(iter, call_arg);
 	iter->arg_index++;
+	if (callcache_deserialize_iterator_valid(iter)) {
+		callcache_deserialize_iterator_get(iter, call_arg);
+	}
 }
 
+static callcache_t callcache;
 
-static callcache_callee_t test_callee = {
-	NULL,
-	NULL
-};
+static bool compare_arg(callcache_call_arg_t *arg_a, callcache_call_arg_t *arg_b) {
+	if (arg_a->type != arg_b->type) {
+		return false;
+	}
 
-void callcache_test() {
-	void *ptr_test = (void*)0x23422342;
-	const char *str_test = "Hello World!";
-	unsigned char blob_test[] = { 0x13, 0x37, 0x42, 0x42 };
+	switch (arg_a->type) {
+	case CALLCACHE_CALL_ARG_TYPE_INT:
+		return arg_a->value.int_val == arg_b->value.int_val;
+	case CALLCACHE_CALL_ARG_TYPE_UINT:
+		return arg_a->value.uint_val == arg_b->value.uint_val;
+	case CALLCACHE_CALL_ARG_TYPE_PTR:
+		return arg_a->value.ptr_val == arg_b->value.ptr_val;
+	case CALLCACHE_CALL_ARG_TYPE_STRING:
+		return !strcmp(arg_a->value.string_val, arg_b->value.string_val);
+	case CALLCACHE_CALL_ARG_TYPE_BLOB:
+		if (arg_a->value.blob_val.len != arg_b->value.blob_val.len) {
+			return false;
+		}
+		return !memcmp(arg_a->value.blob_val.data, arg_b->value.blob_val.data, arg_a->value.blob_val.len);
+	}
 
-	callcache_call_arg_t call_args[] = {
-		{
-			.type = CALLCACHE_CALL_ARG_TYPE_INT,
-			.value.int_val = -1
-		},
-		{
-			.type = CALLCACHE_CALL_ARG_TYPE_UINT,
-			.value.int_val = 0x42
-		},
-		{
-			.type = CALLCACHE_CALL_ARG_TYPE_STRING,
-			.value.string_val = str_test
-		},
-		{
-			.type = CALLCACHE_CALL_ARG_TYPE_PTR,
-			.value.ptr_val = ptr_test
-		},
-		{
-			.type = CALLCACHE_CALL_ARG_TYPE_BLOB,
-			.value.blob_val = {
-				.data = blob_test,
-				.len = sizeof(blob_test)
+	return false;
+}
+
+static bool compare_args(callcache_entry_t *entry, callcache_call_arg_t *args, unsigned int num_args) {
+	const callcache_callee_t *callee = entry->callee;
+	if (callee->is_call_arg_cacheable) {
+		unsigned int num_cacheable_args = 0;
+		for (unsigned int arg = 0; arg < num_args; arg++) {
+			callcache_call_arg_t *call_arg = &args[arg];
+			if (callee->is_call_arg_cacheable(call_arg, arg)) {
+				num_cacheable_args++;
 			}
-		},
-	};
-
-	size_t buffer_len_tiny = callcache_serialize_tiny(&test_callee, call_args, ARRAY_SIZE(call_args), NULL);
-	ESP_LOGI(TAG, "Serialized call size (tiny): %zu bytes\n", buffer_len_tiny);
-	char *buf_tiny = malloc(buffer_len_tiny);
-	callcache_serialize_tiny(&test_callee, call_args, ARRAY_SIZE(call_args), buf_tiny);
-	ESP_LOG_BUFFER_HEX(TAG, buf_tiny, buffer_len_tiny);
-
-	ESP_LOGI(TAG, "Deserialized number of args: %u", callcache_deserialize_get_num_args(buf_tiny));
-	callcache_deserialize_iterator_t iter;
-	callcache_call_arg_t call_arg;
-	for (callcache_deserialize_iterator_first(&iter, &call_arg, buf_tiny);
-	     callcache_deserialize_iterator_valid(&iter);
-	     callcache_deserialize_iterator_next(&iter, &call_arg)) {
-		ESP_LOGI(TAG, "Deserialized arg %u, type %u", call_arg.pos, call_arg.type);
-		switch (call_arg.type) {
-		case CALLCACHE_CALL_ARG_TYPE_INT:
-			ESP_LOGI(TAG, "\tArg value: %d", call_arg.value.int_val);
-			break;
-		case CALLCACHE_CALL_ARG_TYPE_UINT:
-			ESP_LOGI(TAG, "\tArg value: %u", call_arg.value.uint_val);
-			break;
-		case CALLCACHE_CALL_ARG_TYPE_STRING:
-			ESP_LOGI(TAG, "\tArg value: %s", call_arg.value.string_val);
-			break;
-		case CALLCACHE_CALL_ARG_TYPE_PTR:
-			ESP_LOGI(TAG, "\tArg value: %p", call_arg.value.ptr_val);
-			break;
-		case CALLCACHE_CALL_ARG_TYPE_BLOB:
-			ESP_LOGI(TAG, "\tArg value:");
-			ESP_LOG_BUFFER_HEX(TAG, call_arg.value.blob_val.data, call_arg.value.blob_val.len);
-			break;
+		}
+		if (num_args != num_cacheable_args) {
+			return false;
 		}
 	}
+
+	callcache_deserialize_iterator_t iter;
+	callcache_call_arg_t deserialized_call_arg;
+	callcache_deserialize_iterator_first(&iter, &deserialized_call_arg, entry->serialized_call);
+	for (unsigned int arg = 0; arg < num_args; arg++) {
+		callcache_call_arg_t *call_arg = &args[arg];
+		if (callee->is_call_arg_cacheable && !callee->is_call_arg_cacheable(call_arg, arg)) {
+			continue;
+		}
+		if (!callcache_deserialize_iterator_valid(&iter)) {
+			return false;
+		}
+		if (deserialized_call_arg.pos != arg) {
+			return false;
+		}
+		if (!compare_arg(call_arg, &deserialized_call_arg)) {
+			return false;
+		}
+		callcache_deserialize_iterator_next(&iter, &deserialized_call_arg);
+	}
+
+	return true;
+}
+
+static callcache_entry_t *find_cache_entry(const callcache_callee_t *callee, callcache_call_arg_t *args, unsigned int num_args) {
+	int64_t uptime_us = esp_timer_get_time();
+	callcache_entry_t *entry;
+	LIST_FOR_EACH_ENTRY(entry, &callcache.entries, list) {
+		if (entry->callee != callee) {
+			continue;
+		}
+		if (uptime_us > entry->ttl_us) {
+			continue;
+		}
+		if (!compare_args(entry, args, num_args)) {
+			continue;
+		}
+		return entry;
+	}
+
+	return NULL;
+}
+
+static void cache_entry_populate_return_values(callcache_entry_t *entry, callcache_call_arg_t *return_values, unsigned int *num_return_val) {
+	if (!num_return_val) {
+		return;
+	}
+
+	/* Skip over call args */
+	callcache_deserialize_iterator_t iter;
+	callcache_call_arg_t call_arg;
+	for (callcache_deserialize_iterator_first(&iter, &call_arg, entry->serialized_call);
+	     callcache_deserialize_iterator_valid(&iter);
+	     callcache_deserialize_iterator_next(&iter, &call_arg));
+
+	/* Get return values */
+	unsigned int num_populated_return_values = 0;
+	callcache_call_arg_t return_value;
+	callcache_deserialize_iterator_first(&iter, &return_value, iter.ptr);
+	for (unsigned int i = *num_return_val; i > 0; i--) {
+		if (!callcache_deserialize_iterator_valid(&iter)) {
+			break;
+		}
+		/*
+		 * For string and blob types this passes a reference to our internally
+		 * managed memory to the caller. This is a bad idea and will cause problems
+		 * once blob and string types are actually used.
+		 */
+		return_values[num_populated_return_values++] = return_value;
+		callcache_deserialize_iterator_next(&iter, &return_value);
+	}
+
+	*num_return_val = num_populated_return_values;
+}
+
+static esp_err_t cache_update_entry(const callcache_callee_t *callee, callcache_entry_t *entry,
+				    callcache_call_arg_t *args, unsigned int num_args,
+				    callcache_call_arg_t *return_values, unsigned int num_return_val,
+				    int64_t ttl_us) {
+	size_t serialized_len = 0;
+	serialized_len += callcache_serialize_tiny(callee, args, num_args, NULL);
+	serialized_len += callcache_serialize_tiny(callee, return_values, num_return_val, NULL);
+
+	if (entry) {
+		LIST_DELETE(&entry->list);
+		if (entry->buffer_len < serialized_len) {
+			free(entry);
+			entry = NULL;
+		}
+	}
+	if (!entry) {
+		entry = malloc(sizeof(callcache_entry_t) + serialized_len);
+		if (!entry) {
+			ESP_LOGE(TAG, "Failed to allocate cache entry, out of memory");
+			return ESP_ERR_NO_MEM;
+		}
+	}
+	INIT_LIST_HEAD(entry->list);
+	entry->callee = callee;
+	entry->ttl_us = ttl_us;
+	entry->buffer_len = serialized_len;
+	unsigned char *serialize_ptr = entry->serialized_call;
+	callcache_serialize_tiny(callee, args, num_args, &serialize_ptr);
+	callcache_serialize_tiny(callee, return_values, num_return_val, &serialize_ptr);
+
+	ESP_LOGI(TAG, "Adding cache entry, len: %zu", serialized_len);
+	ESP_LOG_BUFFER_HEX(TAG, entry->serialized_call, serialized_len);
+
+	LIST_APPEND(&entry->list, &callcache.entries);
+	return ESP_OK;
+}
+
+void callcache_init() {
+	INIT_LIST_HEAD(callcache.entries);
+}
+
+esp_err_t callcache_call(const callcache_callee_t *callee,
+			 callcache_call_arg_t *args, unsigned int num_args,
+			 callcache_call_arg_t *return_values, unsigned int *num_return_val) {
+	callcache_entry_t *cache_entry = find_cache_entry(callee, args, num_args);
+	if (cache_entry) {
+		ESP_LOGI(TAG, "Cache hit!");
+		cache_entry_populate_return_values(cache_entry, return_values, num_return_val);
+		return ESP_OK;
+	}
+
+	ESP_LOGI(TAG, "Cache miss!");
+	int64_t cache_ttl_us = 0;
+	esp_err_t err = callee->call(args, num_args, return_values, num_return_val, &cache_ttl_us);
+	if (err) {
+		return err;
+	}
+
+	if (cache_ttl_us > 0) {
+		int64_t uptime_us = esp_timer_get_time();
+		return cache_update_entry(callee, cache_entry,
+					  args, num_args,
+					  return_values, *num_return_val,
+					  uptime_us + cache_ttl_us);
+	}
+
+	return ESP_OK;
 }

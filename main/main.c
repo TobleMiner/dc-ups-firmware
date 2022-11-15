@@ -137,7 +137,7 @@ void memcache_callback(kvstore_entry_t *entry) {
 }
 
 void app_main() {
-	callcache_test();
+	callcache_init();
 
 	ESP_ERROR_CHECK(memcache_init());
 
