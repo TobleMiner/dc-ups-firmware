@@ -2,6 +2,7 @@
 
 #include <esp_log.h>
 
+#include "callcache.h"
 #include "util.h"
 
 #define METRIC_PRIV(type_) ((void *)((unsigned int)(type_) & 0xf))
@@ -183,10 +184,75 @@ sensor_t *sensor_find_by_name(const char *name) {
 	return NULL;
 }
 
-esp_err_t sensor_measure(sensor_t *sensor, sensor_measurement_type_t type, unsigned int index, long *res) {
-	esp_err_t err = sensor->def->measure(sensor, type, index, res);
-	if (!err) {
-		update_memcache_entry(sensor, type, index, *res);
+static esp_err_t measure_cacheable(callcache_call_arg_t *args, unsigned int num_args,
+				   callcache_call_arg_t *return_values, unsigned int *num_return_val,
+				   int64_t *cache_ttl_us) {
+	if (num_args != 3) {
+		return ESP_ERR_INVALID_ARG;
 	}
-	return err;
+
+	callcache_call_arg_t *sensor_arg = &args[0];
+	callcache_call_arg_t *type_arg = &args[1];
+	callcache_call_arg_t *channel_arg = &args[2];
+
+	if (sensor_arg->type != CALLCACHE_CALL_ARG_TYPE_PTR) {
+		return ESP_ERR_INVALID_ARG;
+	}
+	if (type_arg->type != CALLCACHE_CALL_ARG_TYPE_UINT) {
+		return ESP_ERR_INVALID_ARG;
+	}
+	if (channel_arg->type != CALLCACHE_CALL_ARG_TYPE_UINT) {
+		return ESP_ERR_INVALID_ARG;
+	}
+
+	sensor_t *sensor = sensor_arg->value.ptr_val;
+	sensor_measurement_type_t type = type_arg->value.uint_val;
+	unsigned int channel = channel_arg->value.uint_val;
+
+	if (*num_return_val >= 1) {
+		long res;
+		esp_err_t err = sensor->def->measure(sensor, type, channel, &res);
+		if (err) {
+			return err;
+		}
+		return_values->type = CALLCACHE_CALL_ARG_TYPE_INT;
+		return_values->value.int_val = res;
+		*num_return_val = 1;
+		*cache_ttl_us = 10LL * 1000LL * 1000LL;
+	}
+
+	return ESP_OK;
+}
+
+static callcache_callee_t callcache_sensor_measure = {
+	.call = measure_cacheable,
+	.is_call_arg_cacheable = NULL
+};
+
+esp_err_t sensor_measure(sensor_t *sensor, sensor_measurement_type_t type, unsigned int index, long *res) {
+	callcache_call_arg_t call_args[] = {
+		{
+			.type = CALLCACHE_CALL_ARG_TYPE_PTR,
+			.value.ptr_val = sensor
+		},
+		{
+			.type = CALLCACHE_CALL_ARG_TYPE_UINT,
+			.value.uint_val = type
+		},
+		{
+			.type = CALLCACHE_CALL_ARG_TYPE_UINT,
+			.value.uint_val = index
+		},
+
+	};
+	callcache_call_arg_t return_values[1];
+	unsigned int num_return_values = 1;
+	esp_err_t err = callcache_call(&callcache_sensor_measure,
+				       call_args, ARRAY_SIZE(call_args),
+				       return_values, &num_return_values);
+	if (err) {
+		return err;
+	}
+	*res = return_values->value.int_val;
+	return ESP_OK;
 }
