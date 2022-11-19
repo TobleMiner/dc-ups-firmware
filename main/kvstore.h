@@ -15,7 +15,10 @@ typedef enum {
 	KVSTORE_ENTRY_TYPE_STRING
 } kvstore_entry_type_t;
 
-typedef struct kvstore_entry {
+struct kvstore_entry;
+typedef struct kvstore_entry kvstore_entry_t;
+
+struct kvstore_entry {
 	const char *key;
 	kvstore_entry_type_t type;
 	union {
@@ -28,7 +31,7 @@ typedef struct kvstore_entry {
 	list_head_t list;
 	bool persistent;
 	void (*on_change)(kvstore_entry_t *entry);
-} kvstore_entry_t;
+};
 
 typedef struct kvstore_listener {
 	list_head_t list;
