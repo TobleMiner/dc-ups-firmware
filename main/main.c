@@ -8,7 +8,6 @@
 
 #include "bq24715_charger.h"
 #include "bq40z50_gauge.h"
-#include "callcache.h"
 #include "ethernet.h"
 #include "font_3x5.h"
 #include "gpio_hc595.h"
@@ -17,6 +16,7 @@
 #include "ina219.h"
 #include "lm75.h"
 #include "memcache.h"
+#include "message_bus.h"
 #include "prometheus_exporter.h"
 #include "prometheus_metrics.h"
 #include "prometheus_metrics_battery.h"
@@ -136,8 +136,28 @@ void memcache_callback(kvstore_entry_t *entry) {
 	}
 }
 
+message_bus_t sensor_message_bus;
+
+void message_bus_cb(message_bus_message_t *msg) {
+	switch (msg->type) {
+	case MESSAGE_BUS_MESSAGE_TYPE_SENSOR_MEASUREMENT_UPDATE: {
+		sensor_update_message_t *update_msg = msg->data;
+		ESP_LOGI(TAG, "Sensor %s type=%u channel=%u value change", update_msg->sensor->name, update_msg->type, update_msg->channel);
+		break;
+	}
+	default:
+		ESP_LOGW(TAG, "Unknown message type on sensor message bus!");
+	}
+}
+
+message_bus_listener_t bcast_listener = {
+	.callback = message_bus_cb
+};
+
 void app_main() {
-	callcache_init();
+	message_bus_init(&sensor_message_bus);
+	message_bus_subscribe(&sensor_message_bus, &bcast_listener);
+	sensor_subsystem_init(&sensor_message_bus);
 
 	ESP_ERROR_CHECK(memcache_init());
 
@@ -217,7 +237,23 @@ void app_main() {
 	unsigned int pixel = 0;
 	unsigned int last_pixel = pixel;
 
+	gpio_hc595_set_level(&hc595, GPIO_HC595_DC_OUT_TEST, 0);
+	unsigned int loop_count = 0;
 	while (1) {
+		if (loop_count % 10 == 0) {
+			int32_t temp_dc_out_mdegc = 0;
+			lm75_read_temperature_mdegc(&lm75[LM75_DC_OUT], &temp_dc_out_mdegc);
+			ESP_LOGI(TAG, "Enabling DC dummy load: %d.%03d°C", temp_dc_out_mdegc / 1000, temp_dc_out_mdegc % 1000);
+			ESP_ERROR_CHECK(gpio_hc595_set_level(&hc595, GPIO_HC595_DC_OUT_TEST, 1));
+		}
+		if (loop_count % 10 == 3) {
+			int32_t temp_dc_out_mdegc = 0;
+			lm75_read_temperature_mdegc(&lm75[LM75_DC_OUT], &temp_dc_out_mdegc);
+			ESP_LOGI(TAG, "Disabling DC dummy load: %d.%03d°C", temp_dc_out_mdegc / 1000, temp_dc_out_mdegc % 1000);
+			ESP_ERROR_CHECK(gpio_hc595_set_level(&hc595, GPIO_HC595_DC_OUT_TEST, 0));
+		}
+		loop_count++;
+		sensor_subsystem_update_all_sensors();
 		ESP_LOGI(TAG, "Toggling GPIO %u", gpio_idx);
 		unsigned int gpio = toggle_gpios[gpio_idx++];
 		gpio_idx %= ARRAY_SIZE(toggle_gpios);

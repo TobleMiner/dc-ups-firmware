@@ -221,8 +221,6 @@ void callcache_deserialize_iterator_next(callcache_deserialize_iterator_t *iter,
 	}
 }
 
-static callcache_t callcache;
-
 static bool compare_arg(callcache_call_arg_t *arg_a, callcache_call_arg_t *arg_b) {
 	if (arg_a->type != arg_b->type) {
 		return false;
@@ -263,8 +261,8 @@ static bool compare_args(callcache_entry_t *entry, callcache_call_arg_t *args, u
 	}
 
 	callcache_deserialize_iterator_t iter;
-	callcache_call_arg_t deserialized_call_arg;
-	callcache_deserialize_iterator_first(&iter, &deserialized_call_arg, entry->serialized_call);
+	callcache_call_arg_t deserialized_return_value;
+	callcache_deserialize_iterator_first(&iter, &deserialized_return_value, entry->serialized_call);
 	for (unsigned int arg = 0; arg < num_args; arg++) {
 		callcache_call_arg_t *call_arg = &args[arg];
 		if (callee->is_call_arg_cacheable && !callee->is_call_arg_cacheable(call_arg, arg)) {
@@ -273,26 +271,47 @@ static bool compare_args(callcache_entry_t *entry, callcache_call_arg_t *args, u
 		if (!callcache_deserialize_iterator_valid(&iter)) {
 			return false;
 		}
-		if (deserialized_call_arg.pos != arg) {
+		if (deserialized_return_value.pos != arg) {
 			return false;
 		}
-		if (!compare_arg(call_arg, &deserialized_call_arg)) {
+		if (!compare_arg(call_arg, &deserialized_return_value)) {
 			return false;
 		}
-		callcache_deserialize_iterator_next(&iter, &deserialized_call_arg);
+		callcache_deserialize_iterator_next(&iter, &deserialized_return_value);
 	}
 
 	return true;
 }
 
-static callcache_entry_t *find_cache_entry(const callcache_callee_t *callee, callcache_call_arg_t *args, unsigned int num_args) {
-	int64_t uptime_us = esp_timer_get_time();
-	callcache_entry_t *entry;
-	LIST_FOR_EACH_ENTRY(entry, &callcache.entries, list) {
-		if (entry->callee != callee) {
-			continue;
+static bool compare_return_values(callcache_entry_t *entry, callcache_call_arg_t *return_values, unsigned int num_return_values) {
+	/* Skip over call args */
+	callcache_deserialize_iterator_t iter;
+	callcache_call_arg_t call_arg;
+	for (callcache_deserialize_iterator_first(&iter, &call_arg, entry->serialized_call);
+	     callcache_deserialize_iterator_valid(&iter);
+	     callcache_deserialize_iterator_next(&iter, &call_arg));
+
+	/* Compare passed return values to cached return values */
+	callcache_call_arg_t deserialized_return_value;
+	callcache_deserialize_iterator_first(&iter, &deserialized_return_value, iter.ptr);
+	for (unsigned int return_value_idx = 0; return_value_idx < num_return_values; return_value_idx++) {
+		callcache_call_arg_t *return_value = &return_values[return_value_idx];
+		if (!callcache_deserialize_iterator_valid(&iter)) {
+			return false;
 		}
-		if (uptime_us > entry->ttl_us) {
+		if (!compare_arg(return_value, &deserialized_return_value)) {
+			return false;
+		}
+		callcache_deserialize_iterator_next(&iter, &deserialized_return_value);
+	}
+
+	return true;
+}
+
+static callcache_entry_t *find_cache_entry(callcache_t *callcache, const callcache_callee_t *callee, callcache_call_arg_t *args, unsigned int num_args) {
+	callcache_entry_t *entry;
+	LIST_FOR_EACH_ENTRY(entry, &callcache->entries, list) {
+		if (entry->callee != callee) {
 			continue;
 		}
 		if (!compare_args(entry, args, num_args)) {
@@ -336,7 +355,7 @@ static void cache_entry_populate_return_values(callcache_entry_t *entry, callcac
 	*num_return_val = num_populated_return_values;
 }
 
-static esp_err_t cache_update_entry(const callcache_callee_t *callee, callcache_entry_t *entry,
+static esp_err_t cache_update_entry(callcache_t *callcache, const callcache_callee_t *callee, callcache_entry_t *entry,
 				    callcache_call_arg_t *args, unsigned int num_args,
 				    callcache_call_arg_t *return_values, unsigned int num_return_val,
 				    int64_t ttl_us) {
@@ -366,41 +385,55 @@ static esp_err_t cache_update_entry(const callcache_callee_t *callee, callcache_
 	callcache_serialize_tiny(callee, args, num_args, &serialize_ptr);
 	callcache_serialize_tiny(callee, return_values, num_return_val, &serialize_ptr);
 
-	ESP_LOGI(TAG, "Adding cache entry, len: %zu", serialized_len);
-	ESP_LOG_BUFFER_HEX(TAG, entry->serialized_call, serialized_len);
-
-	LIST_APPEND(&entry->list, &callcache.entries);
+	LIST_APPEND(&entry->list, &callcache->entries);
 	return ESP_OK;
 }
 
-void callcache_init() {
-	INIT_LIST_HEAD(callcache.entries);
+void callcache_init(callcache_t *callcache) {
+	INIT_LIST_HEAD(callcache->entries);
+	callcache->lock = xSemaphoreCreateRecursiveMutexStatic(&callcache->lock_buffer);
 }
 
-esp_err_t callcache_call(const callcache_callee_t *callee,
-			 callcache_call_arg_t *args, unsigned int num_args,
-			 callcache_call_arg_t *return_values, unsigned int *num_return_val) {
-	callcache_entry_t *cache_entry = find_cache_entry(callee, args, num_args);
-	if (cache_entry) {
-		ESP_LOGI(TAG, "Cache hit!");
+esp_err_t callcache_call_changed(callcache_t *callcache, const callcache_callee_t *callee,
+				 callcache_call_arg_t *args, unsigned int num_args,
+				 callcache_call_arg_t *return_values, unsigned int *num_return_val,
+				 bool *changed) {
+	int64_t uptime_us = esp_timer_get_time();
+	xSemaphoreTakeRecursive(callcache->lock, portMAX_DELAY);
+	callcache_entry_t *cache_entry = find_cache_entry(callcache, callee, args, num_args);
+	if (cache_entry && uptime_us <= cache_entry->ttl_us) {
 		cache_entry_populate_return_values(cache_entry, return_values, num_return_val);
+		*changed = false;
+		xSemaphoreGiveRecursive(callcache->lock);
 		return ESP_OK;
 	}
 
-	ESP_LOGI(TAG, "Cache miss!");
 	int64_t cache_ttl_us = 0;
 	esp_err_t err = callee->call(args, num_args, return_values, num_return_val, &cache_ttl_us);
 	if (err) {
 		return err;
 	}
+	if (changed) {
+		if (cache_entry) {
+			*changed = !compare_return_values(cache_entry, return_values, *num_return_val);
+		} else {
+			*changed = true;
+		}
+	}
 
 	if (cache_ttl_us > 0) {
-		int64_t uptime_us = esp_timer_get_time();
-		return cache_update_entry(callee, cache_entry,
+		return cache_update_entry(callcache, callee, cache_entry,
 					  args, num_args,
 					  return_values, *num_return_val,
 					  uptime_us + cache_ttl_us);
 	}
+	xSemaphoreGiveRecursive(callcache->lock);
 
 	return ESP_OK;
+}
+
+esp_err_t callcache_call(callcache_t *callcache, const callcache_callee_t *callee,
+			 callcache_call_arg_t *args, unsigned int num_args,
+			 callcache_call_arg_t *return_values, unsigned int *num_return_val) {
+	return callcache_call_changed(callcache, callee, args, num_args, return_values, num_return_val, NULL);
 }

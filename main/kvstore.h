@@ -27,10 +27,12 @@ typedef struct kvstore_entry {
 	};
 	list_head_t list;
 	bool persistent;
+	void (*on_change)(kvstore_entry_t *entry);
 } kvstore_entry_t;
 
 typedef struct kvstore_listener {
 	list_head_t list;
+	const char *filter;
 	void (*callback)(kvstore_entry_t *entry);
 } kvstore_listener_t;
 

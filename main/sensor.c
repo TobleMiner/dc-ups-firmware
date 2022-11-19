@@ -14,13 +14,25 @@
 
 static const char *TAG = "sensor";
 
-static DECLARE_LIST_HEAD(sensors);
+typedef struct sensor_subsystem {
+	list_head_t sensors;
+	message_bus_t *message_bus;
+	callcache_t callcache;
+} sensor_subsystem_t;
+
+static sensor_subsystem_t subsystem;
+
+void sensor_subsystem_init(message_bus_t *message_bus) {
+	INIT_LIST_HEAD(subsystem.sensors);
+	subsystem.message_bus = message_bus;
+	callcache_init(&subsystem.callcache);
+}
 
 static unsigned int get_num_values(prometheus_metric_t *metric) {
 	sensor_measurement_type_t type = METRIC_PRIV_TYPE(metric->priv);
 	sensor_t *sensor;
 	unsigned int num_values = 0;
-	LIST_FOR_EACH_ENTRY(sensor, &sensors, list) {
+	LIST_FOR_EACH_ENTRY(sensor, &subsystem.sensors, list) {
 		num_values += sensor->def->get_num_channels(sensor, type);
 	}
 	return num_values;
@@ -28,7 +40,7 @@ static unsigned int get_num_values(prometheus_metric_t *metric) {
 
 static sensor_t *get_sensor_and_channel_by_type_and_index(sensor_measurement_type_t type, unsigned int index, unsigned int *channel) {
 	sensor_t *sensor;
-	LIST_FOR_EACH_ENTRY(sensor, &sensors, list) {
+	LIST_FOR_EACH_ENTRY(sensor, &subsystem.sensors, list) {
 		unsigned int num_values = sensor->def->get_num_channels(sensor, type);
 		if (num_values > index) {
 			if (channel) {
@@ -64,28 +76,6 @@ static void get_label(const prometheus_metric_value_t *val, prometheus_metric_t 
 	} else {
 		strcpy(label, "channel");
 		strcpy(value, sensor->def->get_channel_name(sensor, type, channel));
-	}
-}
-
-static void update_memcache_entry(sensor_t *sensor, sensor_measurement_type_t type, unsigned int channel, long value) {
-	if (!sensor->def->get_memcache_entry) {
-		return;
-	}
-
-	sensor_memcache_entry_t *entry = sensor->def->get_memcache_entry(sensor, type, channel);
-	if (entry) {
-		if (entry->initialized) {
-			memcache_update_entry_int(&entry->entry, value, NULL);
-		} else {
-			snprintf(entry->memcache_key_string, sizeof(entry->memcache_key_string),
-				 "%s_%u.%u", sensor->name, type, channel);
-			esp_err_t err = memcache_add_entry_int(&entry->entry, entry->memcache_key_string, false, value);
-			if (err) {
-				ESP_LOGE(TAG, "Failed to add memcache entry: %d (0x%03x)", err, err);
-			} else {
-				entry->initialized = true;
-			}
-		}
 	}
 }
 
@@ -156,6 +146,7 @@ void sensor_init(sensor_t *sensor, const sensor_def_t *def, const char *name) {
 	INIT_LIST_HEAD(sensor->list);
 	sensor->def = def;
 	sensor->name = name;
+	sensor->lock = xSemaphoreCreateMutexStatic(&sensor->lock_buffer);
 }
 
 void sensor_install_metrics(prometheus_t *prometheus) {
@@ -170,12 +161,12 @@ void sensor_install_metrics(prometheus_t *prometheus) {
 }
 
 void sensor_add(sensor_t *sensor) {
-	LIST_APPEND_TAIL(&sensor->list, &sensors);
+	LIST_APPEND_TAIL(&sensor->list, &subsystem.sensors);
 }
 
 sensor_t *sensor_find_by_name(const char *name) {
 	sensor_t *sensor;
-	LIST_FOR_EACH_ENTRY(sensor, &sensors, list) {
+	LIST_FOR_EACH_ENTRY(sensor, &subsystem.sensors, list) {
 		if (strcmp(sensor->name, name) == 0) {
 			return sensor;
 		}
@@ -229,6 +220,17 @@ static callcache_callee_t callcache_sensor_measure = {
 	.is_call_arg_cacheable = NULL
 };
 
+void notify_message_bus(sensor_t *sensor, sensor_measurement_type_t type, unsigned int channel) {
+	sensor_update_message_t update_msg = {
+		.sensor = sensor,
+		.type = type,
+		.channel = channel
+	};
+	message_bus_broadcast(subsystem.message_bus,
+			      MESSAGE_BUS_MESSAGE_TYPE_SENSOR_MEASUREMENT_UPDATE,
+			      &update_msg);
+}
+
 esp_err_t sensor_measure(sensor_t *sensor, sensor_measurement_type_t type, unsigned int index, long *res) {
 	callcache_call_arg_t call_args[] = {
 		{
@@ -247,12 +249,45 @@ esp_err_t sensor_measure(sensor_t *sensor, sensor_measurement_type_t type, unsig
 	};
 	callcache_call_arg_t return_values[1];
 	unsigned int num_return_values = 1;
-	esp_err_t err = callcache_call(&callcache_sensor_measure,
-				       call_args, ARRAY_SIZE(call_args),
-				       return_values, &num_return_values);
+	bool changed;
+	xSemaphoreTake(sensor->lock, portMAX_DELAY);
+	esp_err_t err = callcache_call_changed(&subsystem.callcache, &callcache_sensor_measure,
+					       call_args, ARRAY_SIZE(call_args),
+					       return_values, &num_return_values,
+					       &changed);
 	if (err) {
 		return err;
 	}
-	*res = return_values->value.int_val;
+	if (changed && subsystem.message_bus) {
+		notify_message_bus(sensor, type, index);
+	}
+	xSemaphoreGive(sensor->lock);
+	if (res) {
+		*res = return_values->value.int_val;
+	}
 	return ESP_OK;
+}
+
+esp_err_t sensor_subsystem_update_all_sensors(void) {
+	esp_err_t err = ESP_OK;
+
+	sensor_t *sensor;
+	LIST_FOR_EACH_ENTRY(sensor, &subsystem.sensors, list) {
+		if (!sensor->def->get_num_channels) {
+			continue;
+		}
+		for (sensor_measurement_type_t type = 0; type < SENSOR_TYPE_MAX; type++) {
+			unsigned int num_channels = sensor->def->get_num_channels(sensor, type);
+			for (unsigned int channel = 0; channel < num_channels; channel++) {
+				esp_err_t sensor_err = sensor_measure(sensor, type, channel, NULL);
+				if (sensor_err) {
+					ESP_LOGE(TAG, "Failed to update sensor %s: %d (0x%03x)", sensor->name, sensor_err, sensor_err);
+					if (!err) {
+						err = sensor_err;
+					}
+				}
+			}
+		}
+	}
+	return err;
 }

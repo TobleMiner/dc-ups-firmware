@@ -16,6 +16,7 @@ set(SOURCE_FILES
 	magic.c
 	main.c
 	memcache.c
+	message_bus.c
 	mime.c
 	power_path.c
 	prometheus.c

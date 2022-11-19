@@ -116,9 +116,13 @@ esp_err_t kvstore_add_entry(kvstore_t *store, kvstore_entry_t *entry) {
 static void notify_listeners(const kvstore_t *store, kvstore_entry_t *entry, const kvstore_listener_t *exclude) {
 	kvstore_listener_t *listener;
 	LIST_FOR_EACH_ENTRY(listener, &store->listeners, list) {
-		if (listener != exclude) {
-			listener->callback(entry);
+		if (listener == exclude) {
+			continue;
 		}
+		if (listener->filter && strcmp(listener->filter, entry->key)) {
+			continue;
+		}
+		listener->callback(entry);
 	}
 }
 
@@ -168,6 +172,9 @@ esp_err_t kvstore_update_entry_string_(kvstore_t *store, kvstore_entry_t *entry,
 	entry->blob.on_heap = true;
 
 	/* Notify all listeners about the change in value */
+	if (entry->on_change) {
+		entry->on_change(entry);
+	}
 	notify_listeners(store, entry, exclude);
 	return ESP_OK;
 }
@@ -198,6 +205,9 @@ esp_err_t kvstore_update_entry_int_(kvstore_t *store, kvstore_entry_t *entry,
 		}
 	}
 	entry->value = val;
+	if (entry->on_change) {
+		entry->on_change(entry);
+	}
 	notify_listeners(store, entry, exclude);
 	return ESP_OK;
 }

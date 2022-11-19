@@ -38,6 +38,6 @@ static esp_err_t websocket_binding_cb(struct httpd_request_ctx* ctx, void* priv)
 }
 
 
-static void remote_binding_init(httpd_t *httpd) {
+static void remote_binding_init(httpd_t *httpd, message_bus_t *bus) {
 	ESP_ERROR_CHECK(httpd_add_websocket_handler(httpd, "/api/v1/binding", websocket_binding_cb, NULL, 0));
 }
