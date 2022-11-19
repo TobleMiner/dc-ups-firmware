@@ -411,6 +411,7 @@ esp_err_t callcache_call_changed(callcache_t *callcache, const callcache_callee_
 	int64_t cache_ttl_us = 0;
 	esp_err_t err = callee->call(args, num_args, return_values, num_return_val, &cache_ttl_us);
 	if (err) {
+		xSemaphoreGiveRecursive(callcache->lock);
 		return err;
 	}
 	if (changed) {
@@ -422,14 +423,14 @@ esp_err_t callcache_call_changed(callcache_t *callcache, const callcache_callee_
 	}
 
 	if (cache_ttl_us > 0) {
-		return cache_update_entry(callcache, callee, cache_entry,
-					  args, num_args,
-					  return_values, *num_return_val,
-					  uptime_us + cache_ttl_us);
+		err = cache_update_entry(callcache, callee, cache_entry,
+					 args, num_args,
+					 return_values, *num_return_val,
+					 uptime_us + cache_ttl_us);
 	}
 	xSemaphoreGiveRecursive(callcache->lock);
 
-	return ESP_OK;
+	return err;
 }
 
 esp_err_t callcache_call(callcache_t *callcache, const callcache_callee_t *callee,
