@@ -15,6 +15,7 @@
 #include "display_on_battery.h"
 #include "display_power.h"
 #include "display_screensaver.h"
+#include "display_system.h"
 #include "event_bus.h"
 #include "fb.h"
 #include "gui.h"
@@ -31,7 +32,8 @@ typedef enum display_screen_type {
 	DISPLAY_SCREEN_BMS,
 	DISPLAY_SCREEN_POWER,
 	DISPLAY_SCREEN_NETWORK,
-	DISPLAY_SCREEN_MAX_ = DISPLAY_SCREEN_NETWORK
+	DISPLAY_SCREEN_SYSTEM,
+	DISPLAY_SCREEN_MAX_ = DISPLAY_SCREEN_SYSTEM
 } display_screen_type_t;
 
 static const char *TAG = "display";
@@ -181,6 +183,7 @@ void display_init(i2c_bus_t *display_bus) {
 	screens[DISPLAY_SCREEN_BMS] = display_bms_init(&gui);
 	screens[DISPLAY_SCREEN_POWER] = display_power_init(&gui);
 	screens[DISPLAY_SCREEN_NETWORK] = display_network_init(&gui);
+	screens[DISPLAY_SCREEN_SYSTEM] = display_system_init(&gui);
 
 	buttons_register_multi_button_event_handler(&button_event_handler, &button_event_cfg);
 	scheduler_task_init(&screensaver_timeout_task);

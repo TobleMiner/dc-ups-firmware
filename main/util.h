@@ -74,3 +74,17 @@ void strntr(char* str, size_t len, char a, char b);
   ((hex_to_nibble((hex)[0]) << 4) | hex_to_nibble((hex)[1]))
 
 #define MS_TO_US(ms) ((ms) * 1000)
+
+#define COALESCE(x, default_) ((x) ? (x) : (default_))
+
+#define STR_NULL(s) COALESCE((s), "(NULL)")
+
+#define MS_TO_US(ms) ((ms) * 1000)
+
+#ifndef STRINGIFY
+#define STRINGIFY(str) #str
+#endif
+
+#ifndef XSTRINGIFY
+#define XSTRINGIFY(str) STRINGIFY(str)
+#endif

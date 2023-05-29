@@ -10,6 +10,7 @@ set(SOURCE_FILES
 	display_on_battery.c
 	display_power.c
 	display_screensaver.c
+	display_system.c
 	ethernet.c
 	event_bus.c
 	font_3x5.c
@@ -32,12 +33,17 @@ set(SOURCE_FILES
 	ring.c
 	scheduler.c
 	sensor.c
+	settings.c
 	smbus.c
 	ssd1306_oled.c
 	template.c
 	util.c
+	vendor.c
 	website.c
 	wifi.c)
 
 idf_component_register(SRCS ${SOURCE_FILES}
                        INCLUDE_DIRS ".")
+
+execute_process(COMMAND git describe --always --dirty OUTPUT_VARIABLE ups_app_version)
+add_compile_definitions(UPS_APP_VERSION=${ups_app_version})

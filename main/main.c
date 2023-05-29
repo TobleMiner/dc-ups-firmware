@@ -23,8 +23,10 @@
 #include "prometheus_metrics_battery.h"
 #include "scheduler.h"
 #include "sensor.h"
+#include "settings.h"
 #include "ssd1306_oled.h"
 #include "util.h"
+#include "vendor.h"
 #include "website.h"
 #include "wifi.h"
 
@@ -149,6 +151,8 @@ void app_main() {
 	ESP_ERROR_CHECK(esp_vfs_spiffs_register(&spiffs_conf));
 
 	event_bus_init();
+	settings_init();
+	vendor_init();
 	scheduler_init();
 	buttons_init();
 
