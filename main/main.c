@@ -223,10 +223,12 @@ void app_main() {
 	ESP_ERROR_CHECK(httpd_init(&httpd, "/webroot", 32));
 	website_init(&httpd);
 	prometheus_init(&prometheus);
+/*
 	prometheus_metric_init(&metric_simple, &test_metric_def, NULL);
 	prometheus_add_metric(&prometheus, &metric_simple);
 	prometheus_metric_init(&metric_complex, &complex_test_metric_def, NULL);
 	prometheus_add_metric(&prometheus, &metric_complex);
+*/
 	prometheus_battery_metrics_init(&battery_metrics, &bq40z50);
 	prometheus_add_battery_metrics(&battery_metrics, &prometheus);
 	sensor_install_metrics(&prometheus);
