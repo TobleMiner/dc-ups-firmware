@@ -6,6 +6,7 @@ set(SOURCE_FILES
 	delay.c
 	display.c
 	display_bms.c
+	display_network.c
 	display_on_battery.c
 	display_power.c
 	display_screensaver.c
