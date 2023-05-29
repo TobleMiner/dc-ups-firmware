@@ -8,11 +8,14 @@
 #include <hal/eth_types.h>
 
 #include "event_bus.h"
+#include "vendor.h"
 
 static const char *TAG = "ethernet";
 
 static esp_netif_t *eth_netif;
 static esp_eth_handle_t eth_handle;
+
+static event_bus_handler_t vendor_event_handler;
 
 static void eth_event_handler(void *arg, esp_event_base_t event_base,
                               int32_t event_id, void *event_data) {
@@ -61,6 +64,16 @@ static void got_ip_event_handler(void *arg, esp_event_base_t event_base,
 	}
 }
 
+static void update_hostname(void) {
+	vendor_lock();
+	esp_netif_set_hostname(eth_netif, vendor_get_hostname_());
+	vendor_unlock();
+}
+
+static void on_vendor_event(void *priv, void *data) {
+	update_hostname();
+}
+
 esp_err_t ethernet_init(const ethernet_config_t *cfg) {
 	ESP_ERROR_CHECK(esp_netif_init());
 	ESP_ERROR_CHECK(esp_event_loop_create_default());
@@ -87,11 +100,15 @@ esp_err_t ethernet_init(const ethernet_config_t *cfg) {
 	/* attach Ethernet driver to TCP/IP stack */
 	ESP_ERROR_CHECK(esp_netif_attach(eth_netif, esp_eth_new_netif_glue(eth_handle)));
 
+	update_hostname();
+
 	ESP_ERROR_CHECK(esp_event_handler_register(ETH_EVENT, ESP_EVENT_ANY_ID, &eth_event_handler, NULL));
 	ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID, &got_ip_event_handler, NULL));
 
 	/* start Ethernet driver state machine */
 	ESP_ERROR_CHECK(esp_eth_start(eth_handle));
+
+	event_bus_subscribe(&vendor_event_handler, "vendor", on_vendor_event, NULL);
 
 	return ESP_OK;
 }
