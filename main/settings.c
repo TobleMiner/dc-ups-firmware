@@ -139,3 +139,11 @@ void settings_set_serial_number(const char *str) {
 char *settings_get_serial_number(void) {
 	return nvs_get_string("Serial");
 }
+
+void settings_set_input_current_limit_ma(unsigned int current_ma) {
+	nvs_set_uint("MaxInCurrent", current_ma);
+}
+
+unsigned int settings_get_input_current_limit_ma(void) {
+	return nvs_get_uint("MaxInCurrent", 1000);
+}

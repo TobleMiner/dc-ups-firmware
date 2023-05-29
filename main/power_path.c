@@ -9,6 +9,7 @@
 #include "ina219.h"
 #include "lm75.h"
 #include "scheduler.h"
+#include "settings.h"
 #include "util.h"
 
 #define GPIO_DCOK	34
@@ -21,6 +22,7 @@
 #define BATTERY_CHARGE_VOLTAGE_MV	8400
 #define DEFAULT_CHARGE_CURRENT_MA	256
 #define MAX_CHARGE_CURRENT_MA		1024
+#define MAX_INPUT_CURRENT_MA		4000
 
 typedef enum ina_type {
 	INA_TYPE_DC_IN			= 0,
@@ -218,6 +220,13 @@ static void power_path_update_cb(void *ctx) {
 	scheduler_schedule_task_relative(&power_path_update_task, power_path_update_cb, NULL, MS_TO_US(POWER_UPDATE_INTERVAL_MS));
 }
 
+static void power_path_set_input_current_limit_(unsigned int current_ma) {
+	if (current_ma > MAX_INPUT_CURRENT_MA) {
+		current_ma = MAX_INPUT_CURRENT_MA;
+	}
+	input_current_limit_ma = current_ma;
+}
+
 void power_path_init(smbus_t *smbus, i2c_bus_t *i2c_bus) {
 	int i;
 
@@ -237,12 +246,15 @@ void power_path_init(smbus_t *smbus, i2c_bus_t *i2c_bus) {
 	ESP_ERROR_CHECK(bq24715_set_max_charge_voltage(&bq24715, BATTERY_CHARGE_VOLTAGE_MV));
 	ESP_ERROR_CHECK(bq24715_set_charge_current(&bq24715, DEFAULT_CHARGE_CURRENT_MA));
 
+	power_path_set_input_current_limit_(settings_get_input_current_limit_ma());
+
 	scheduler_task_init(&power_path_update_task);
 	scheduler_schedule_task_relative(&power_path_update_task, power_path_update_cb, NULL, 0);
 }
 
 void power_path_set_input_current_limit(unsigned int current_ma) {
-	input_current_limit_ma = current_ma;
+	power_path_set_input_current_limit_(current_ma);
+	settings_set_input_current_limit_ma(current_ma);
 }
 
 unsigned int power_path_get_input_current_limit_ma(void) {

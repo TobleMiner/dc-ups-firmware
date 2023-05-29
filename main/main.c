@@ -6,6 +6,7 @@
 #include <esp_spiffs.h>
 #include <freertos/FreeRTOS.h>
 
+#include "api.h"
 #include "bq40z50_gauge.h"
 #include "buttons.h"
 #include "display.h"
@@ -206,7 +207,6 @@ void app_main() {
 */
 
 	power_path_init(&smbus_bus, &i2c_bus);
-	power_path_set_input_current_limit(1000);
 /*
 	for (int i = 0; i < ARRAY_SIZE(ina); i++) {
 		ESP_ERROR_CHECK(ina219_init(&ina[i], &smbus_bus, ina_address[i], 10, ina_names[i]));
@@ -222,6 +222,7 @@ void app_main() {
 */
 	ESP_ERROR_CHECK(httpd_init(&httpd, "/webroot", 32));
 	website_init(&httpd);
+	api_init(&httpd);
 	prometheus_init(&prometheus);
 /*
 	prometheus_metric_init(&metric_simple, &test_metric_def, NULL);
