@@ -10,6 +10,7 @@
 
 #define DEVICE_TYPE			0x4500
 
+#define CMD_AT_RATE			0x04
 #define CMD_AT_RATE_TIME_TO_EMPTY	0x06
 #define CMD_TEMPERATURE			0x08
 #define CMD_VOLTAGE			0x09
@@ -194,6 +195,8 @@ static int bq40z50_get_param(battery_gauge_t *gauge, battery_param_t param, int3
 		return bq40z50_get_current_ma(bq40, (int *)retval);
 	case BATTERY_TIME_TO_EMPTY_MIN:
 		return bq40z50_get_run_time_to_empty_min(bq40, (unsigned int *)retval);
+	case BATTERY_AT_RATE_TIME_TO_EMPTY_MIN:
+		return bq40z50_get_at_rate_time_to_empty_min(bq40, (unsigned int *)retval);
 	case BATTERY_TEMPERATURE_MDEG_C:
 		return bq40z50_get_battery_temperature_mdegc(bq40, retval);
 	case BATTERY_FULL_CHARGE_CAPACITY_MAH:
@@ -203,8 +206,20 @@ static int bq40z50_get_param(battery_gauge_t *gauge, battery_param_t param, int3
 	}
 }
 
+static int bq40z50_set_param(battery_gauge_t *gauge, battery_param_t param, int32_t val) {
+	bq40z50_t *bq40 = gauge->priv;
+
+	switch (param) {
+	case BATTERY_AT_RATE_MA:
+		return bq40z50_set_at_rate_ma(bq40, val);
+	default:
+		return ENOTSUP;
+	}
+}
+
 static const battery_gauge_ops_t bq40z50_gauge_ops = {
 	.get_param = bq40z50_get_param,
+	.set_param = bq40z50_set_param,
 };
 
 esp_err_t bq40z50_init(bq40z50_t *gauge, smbus_t *bus, int address) {
@@ -290,4 +305,12 @@ esp_err_t bq40z50_get_charging_voltage_mv(bq40z50_t *gauge, unsigned int *res) {
 
 esp_err_t bq40z50_get_run_time_to_empty_min(bq40z50_t *gauge, unsigned int *res) {
 	return read_uword(gauge, CMD_RUN_TIME_TO_EMPTY, res);
+}
+
+esp_err_t bq40z50_set_at_rate_ma(bq40z50_t *gauge, int rate_ma) {
+	return write_word(gauge, CMD_AT_RATE, rate_ma);
+}
+
+esp_err_t bq40z50_get_at_rate_time_to_empty_min(bq40z50_t *gauge, unsigned int *res) {
+	return read_uword(gauge, CMD_AT_RATE_TIME_TO_EMPTY, res);
 }

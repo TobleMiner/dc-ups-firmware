@@ -31,3 +31,5 @@ esp_err_t bq40z50_get_charging_current_ma(bq40z50_t *gauge, unsigned int *res);
 esp_err_t bq40z50_get_charging_voltage_mv(bq40z50_t *gauge, unsigned int *res);
 esp_err_t bq40z50_get_run_time_to_empty_min(bq40z50_t *gauge, unsigned int *res);
 esp_err_t bq40z50_shutdown(bq40z50_t *gauge);
+esp_err_t bq40z50_set_at_rate_ma(bq40z50_t *gauge, int rate_ma);
+esp_err_t bq40z50_get_at_rate_time_to_empty_min(bq40z50_t *gauge, unsigned int *res);

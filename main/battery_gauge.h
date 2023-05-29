@@ -11,7 +11,7 @@ typedef enum battery_param {
 	BATTERY_CURRENT_MA,
 	BATTERY_TIME_TO_EMPTY_MIN,
 	BATTERY_AT_RATE_TIME_TO_EMPTY_MIN,
-	BATTERY_RATE_MA,
+	BATTERY_AT_RATE_MA,
 	BATTERY_TEMPERATURE_MDEG_C,
 	BATTERY_FULL_CHARGE_CAPACITY_MAH,
 	BATTERY_PARAM_MAX_ = BATTERY_FULL_CHARGE_CAPACITY_MAH
@@ -40,3 +40,5 @@ unsigned int battery_gauge_get_cell1_voltage_mv(void);
 unsigned int battery_gauge_get_cell2_voltage_mv(void);
 long battery_gauge_get_temperature_mdegc(void);
 unsigned int battery_gauge_get_full_charge_capacity_mah(void);
+unsigned int battery_gauge_get_at_rate_time_to_empty_min(void);
+void battery_gauge_set_at_rate(int rate_ma);

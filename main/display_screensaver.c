@@ -12,11 +12,18 @@
 
 #define MOVE_INTERVAL_MS 5000
 
+typedef struct label_text_pair {
+	gui_label_t label;
+	char text[20];
+} label_text_pair_t;
+
 static gui_container_t screensaver;
 static gui_label_t screensaver_soc_label;
 static char screensaver_soc_text[10];
 static gui_label_t screensaver_power_label;
 static char screensaver_power_text[10];
+
+static label_text_pair_t runtime_label;
 
 static scheduler_task_t screensaver_move_task;
 
@@ -28,11 +35,15 @@ event_bus_handler_t event_hander_power_path;
 static void on_battery_gauge_event(void *priv, void *data) {
 	gui_t *gui = priv;
 	unsigned int soc;
+	unsigned int time_to_empty = battery_gauge_get_at_rate_time_to_empty_min();
 
 	gui_lock(gui);
 	soc = battery_gauge_get_soc_percent();
 	snprintf(screensaver_soc_text, sizeof(screensaver_soc_text), "%u%%", soc);
 	gui_label_set_text(&screensaver_soc_label, screensaver_soc_text);
+
+	snprintf(runtime_label.text, sizeof(runtime_label.text), "%02u:%02u", time_to_empty / 60, time_to_empty % 60);
+	gui_label_set_text(&runtime_label.label, runtime_label.text);
 	gui_unlock(gui);
 }
 
@@ -65,24 +76,25 @@ static const display_screen_t screensaver_screen = {
 	.hide = display_screensaver_hide
 };
 
+static void setup_label(gui_label_t *label, const char *text, unsigned int pos_x, unsigned int pos_y) {
+	gui_label_init(label, text);
+	gui_label_set_text_alignment(label, GUI_TEXT_ALIGN_CENTER);
+	gui_element_set_size(&label->element, 20, 5);
+	gui_element_set_position(&label->element, pos_x, pos_y);
+	gui_element_add_child(&screensaver.element, &label->element);
+}
+
 const display_screen_t *display_screensaver_init(gui_t *gui_root) {
 	gui = gui_root;
 
 	gui_container_init(&screensaver);
-	gui_element_set_size(&screensaver.element, 20, 12);
+	gui_element_set_size(&screensaver.element, 20, 19);
 	gui_element_set_hidden(&screensaver.element, true);
 	gui_element_add_child(&gui->container.element, &screensaver.element);
 
-	gui_label_init(&screensaver_soc_label, "<SOC>");
-	gui_label_set_text_alignment(&screensaver_soc_label, GUI_TEXT_ALIGN_CENTER);
-	gui_element_set_size(&screensaver_soc_label.element, 20, 5);
-	gui_element_add_child(&screensaver.element, &screensaver_soc_label.element);
-
-	gui_label_init(&screensaver_power_label, "<POWER>");
-	gui_label_set_text_alignment(&screensaver_power_label, GUI_TEXT_ALIGN_CENTER);
-	gui_element_set_size(&screensaver_power_label.element, 20, 5);
-	gui_element_set_position(&screensaver_power_label.element, 0, 7);
-	gui_element_add_child(&screensaver.element, &screensaver_power_label.element);
+	setup_label(&screensaver_soc_label, "???%", 0, 0);
+	setup_label(&screensaver_power_label, "?.??W", 0, 7);
+	setup_label(&runtime_label.label, "??:??", 0, 14);
 
 	scheduler_task_init(&screensaver_move_task);
 	scheduler_schedule_task_relative(&screensaver_move_task, screensaver_move_cb, NULL, MS_TO_US(MOVE_INTERVAL_MS));

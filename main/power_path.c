@@ -4,8 +4,9 @@
 #include <esp_err.h>
 #include <esp_log.h>
 
-#include "event_bus.h"
+#include "battery_gauge.h"
 #include "bq24715_charger.h"
+#include "event_bus.h"
 #include "ina219.h"
 #include "lm75.h"
 #include "scheduler.h"
@@ -20,6 +21,7 @@
 #define POWER_UPDATE_INTERVAL_MS	1000
 
 #define BATTERY_CHARGE_VOLTAGE_MV	8400
+#define BATTERY_NOMINAL_VOLTAGE_MV	7400
 #define DEFAULT_CHARGE_CURRENT_MA	256
 #define MAX_CHARGE_CURRENT_MA		1024
 #define MAX_INPUT_CURRENT_MA		4000
@@ -133,6 +135,9 @@ static void update_charge_current(void) {
 	long long current_output_power_uw = calculate_output_power_uw();
 	long long max_input_power_uw = calculate_max_input_power_uw();
 	unsigned int charge_current_setpoint_ma = 0;
+	long predicted_discharge_current_ma = current_output_power_uw / BATTERY_NOMINAL_VOLTAGE_MV;
+
+	battery_gauge_set_at_rate(-predicted_discharge_current_ma);
 
 	output_power_mw = DIV_ROUND(current_output_power_uw, 1000);
 

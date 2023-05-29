@@ -84,3 +84,11 @@ long battery_gauge_get_temperature_mdegc(void) {
 unsigned int battery_gauge_get_full_charge_capacity_mah(void) {
 	return battery_params[BATTERY_FULL_CHARGE_CAPACITY_MAH];
 }
+
+unsigned int battery_gauge_get_at_rate_time_to_empty_min(void) {
+	return battery_params[BATTERY_AT_RATE_TIME_TO_EMPTY_MIN];
+}
+
+void battery_gauge_set_at_rate(int rate_ma) {
+	gauge->ops->set_param(gauge, BATTERY_AT_RATE_MA, rate_ma);
+}
