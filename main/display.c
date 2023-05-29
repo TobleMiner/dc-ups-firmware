@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 #include <freertos/task.h>
 
 #include <esp_err.h>
@@ -37,6 +38,9 @@ typedef enum display_screen_type {
 } display_screen_type_t;
 
 static const char *TAG = "display";
+
+static SemaphoreHandle_t lock;
+static StaticSemaphore_t lock_buffer;
 
 unsigned int selected_screen = DISPLAY_SCREEN_BMS;
 static const display_screen_t *screens[DISPLAY_SCREEN_MAX_ + 1] = { NULL };
@@ -102,8 +106,9 @@ static void show_screensaver(void) {
 }
 
 static void show_screensaver_cb(void *ctx) {
-	/* TODO: lock */
+	xSemaphoreTake(lock, portMAX_DELAY);
 	show_screensaver();
+	xSemaphoreGive(lock);
 }
 
 static bool reset_screensaver(void) {
@@ -124,18 +129,19 @@ static bool reset_screensaver(void) {
 static bool ignore_key_release = false;
 
 static bool on_button_event(const button_event_t *event, void *priv) {
+	xSemaphoreTake(lock, portMAX_DELAY);
 	if (event->action == BUTTON_ACTION_PRESS) {
 		ignore_key_release = reset_screensaver();
 	} else {
 		if (ignore_key_release) {
 			ignore_key_release = false;
 		} else {
-			/* TODO: add lock to prevent race with screensaver scheduler task */
 			hide_screen(active_screen);
 			selected_screen = (selected_screen + 1) % ARRAY_SIZE(screens);
 			show_screen(screens[selected_screen]);
 		}
 	}
+	xSemaphoreGive(lock);
 
 	return true;
 }
@@ -151,14 +157,17 @@ const button_event_handler_multi_user_cfg_t button_event_cfg = {
 };
 
 static void on_power_source_changed(void *ctx, void *data) {
-	/* TODO: lock */
+	xSemaphoreTake(lock, portMAX_DELAY);
 	if (showing_screensaver) {
 		show_screensaver();
 	}
+	xSemaphoreGive(lock);
 }
 
 void display_init(i2c_bus_t *display_bus) {
 	esp_err_t err;
+
+	lock = xSemaphoreCreateMutexStatic(&lock_buffer);
 
 	err = ssd1306_oled_init(&oled, display_bus, DISPLAY_I2C_ADDRESS, GPIO_OLED_RESET);
 	if (err) {
