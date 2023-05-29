@@ -59,7 +59,7 @@ esp_err_t i2c_bus_scan(i2c_bus_t* bus, i2c_address_set_t addr) {
 		if((err = i2c_master_stop(cmd))) {
 			goto fail_link;
 		}
-		esp_err_t nacked = i2c_bus_cmd_begin(bus, cmd, 100 / portTICK_RATE_MS);
+		esp_err_t nacked = i2c_bus_cmd_begin(bus, cmd, pdMS_TO_TICKS(100));
 		if(!nacked) {
 			I2C_ADDRESS_SET_SET(addr, i);
 		}

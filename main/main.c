@@ -6,18 +6,22 @@
 #include <esp_spiffs.h>
 #include <freertos/FreeRTOS.h>
 
-#include "bq24715_charger.h"
 #include "bq40z50_gauge.h"
+#include "buttons.h"
+#include "display.h"
 #include "ethernet.h"
+#include "event_bus.h"
 #include "font_3x5.h"
 #include "gpio_hc595.h"
 #include "httpd.h"
 #include "i2c_bus.h"
 #include "ina219.h"
 #include "lm75.h"
+#include "power_path.h"
 #include "prometheus_exporter.h"
 #include "prometheus_metrics.h"
 #include "prometheus_metrics_battery.h"
+#include "scheduler.h"
 #include "sensor.h"
 #include "ssd1306_oled.h"
 #include "util.h"
@@ -43,8 +47,6 @@
 #define I2C_I2C			I2C_NUM_0
 #define GPIO_I2C_DATA		15
 #define GPIO_I2C_CLK		13
-
-#define GPIO_OLED_RESET		23
 
 #define GPIO_BUTTON		39
 
@@ -83,7 +85,6 @@ static lm75_t lm75[3];
 static const char *lm75_names[3] = { "lm75_charger", "lm75_dc_out", "lm75_usb_out" };
 static unsigned int lm75_address[3] = { 0x48, 0x49, 0x4a };
 
-static bq24715_t bq24715;
 static bq40z50_t bq40z50;
 
 #define INA_DC_IN		0
@@ -95,8 +96,10 @@ static ina219_t ina[4];
 static unsigned int ina_address[4] = { 0x40, 0x41, 0x42, 0x43 };
 static const char *ina_names[4] = { "ina_dc_in", "ina_dc_out_passthrough", "ina_dc_out_step_up", "ina_usb_out" };
 
+/*
 static ssd1306_oled_t oled;
 static fb_t fb;
+*/
 
 static httpd_t httpd;
 
@@ -114,22 +117,54 @@ static const ethernet_config_t ethernet_cfg = {
 	.mdio_gpio = GPIO_PHY_MDIO
 };
 
+/*
 static void button_pressed(void *_) {
 	do_shutdown = true;
 }
+*/
+
+button_event_handler_t button_held_event_handler;
+
+static bool on_button_held_event(const button_event_t *event, void *priv) {
+	ESP_LOGI(TAG, "Button held for 5s! Shutting down battery pack...");
+	bq40z50_shutdown(&bq40z50);
+
+	return true;
+}
+
+const button_event_handler_single_user_cfg_t button_held_cfg = {
+	.base = {
+		.cb = on_button_held_event,
+	},
+	.single = {
+		.button = BUTTON_ENTER,
+		.action = BUTTON_ACTION_HOLD,
+		.min_hold_duration_ms = 5000,
+	}
+};
 
 void app_main() {
-	ESP_ERROR_CHECK(gpio_install_isr_service(0));
+//	ESP_ERROR_CHECK(gpio_install_isr_service(0));
 
 	ESP_ERROR_CHECK(esp_vfs_spiffs_register(&spiffs_conf));
 
+	event_bus_init();
+	scheduler_init();
+	buttons_init();
+
 	ESP_ERROR_CHECK(ethernet_init(&ethernet_cfg));
 
-	wifi_init();
-	wifi_start_ap();
+//	wifi_init();
+//	wifi_start_ap();
 
 	ESP_ERROR_CHECK(spi_bus_initialize(SPI_HC595, &hc595_spi_bus_cfg, SPI_DMA_DISABLED));
 	ESP_ERROR_CHECK(gpio_hc595_init(&hc595, SPI_HC595, GPIO_HC595_LATCH));
+	gpio_hc595_set_level(&hc595, GPIO_HC595_DC_OUT3_OFF, 0);
+	gpio_hc595_set_level(&hc595, GPIO_HC595_DC_OUT_TEST, 0);
+	gpio_hc595_set_level(&hc595, GPIO_HC595_DC_OUT_OFF, 0);
+	gpio_hc595_set_level(&hc595, GPIO_HC595_USB_OUT_OFF, 0);
+	gpio_hc595_set_level(&hc595, GPIO_HC595_DC_OUT2_OFF, 0);
+	gpio_hc595_set_level(&hc595, GPIO_HC595_DC_OUT1_OFF, 0);
 
 	ESP_ERROR_CHECK(i2c_bus_init(&smbus_i2c_bus, I2C_SMBUS, GPIO_SMBUS_DATA, GPIO_SMBUS_CLK, KHZ(100)));
 	smbus_init(&smbus_bus, &smbus_i2c_bus);
@@ -137,7 +172,7 @@ void app_main() {
 
 	ESP_ERROR_CHECK(i2c_bus_init(&i2c_bus, I2C_I2C, GPIO_I2C_DATA, GPIO_I2C_CLK, KHZ(100)));
 	i2c_detect(&i2c_bus);
-
+/*
 	for (int i = 0; i < ARRAY_SIZE(lm75); i++) {
 		lm75_init(&lm75[i], &i2c_bus, lm75_address[i], lm75_names[i]);
 		int32_t temp_mdegc = 0;
@@ -148,19 +183,27 @@ void app_main() {
 			ESP_LOGI(TAG, "Sensor %d: %.2f°C", i, (float)temp_mdegc / 1000.0f);
 		}
 	}
-
+*/
+	display_init(&i2c_bus);
+/*
 	ESP_ERROR_CHECK(ssd1306_oled_init(&oled, &i2c_bus, 0x3c, GPIO_OLED_RESET));
 	fb_init(&fb);
-
-	ESP_ERROR_CHECK(bq24715_init(&bq24715, &smbus_bus));
-	ESP_ERROR_CHECK(bq24715_set_max_charge_voltage(&bq24715, 8400));
-	ESP_ERROR_CHECK(bq24715_set_charge_current(&bq24715, 256));
+*/
 
 	ESP_ERROR_CHECK(bq40z50_init(&bq40z50, &smbus_bus, -1));
+	battery_gauge_init(&bq40z50.gauge);
+
+	buttons_register_single_button_event_handler(&button_held_event_handler, &button_held_cfg);
+	buttons_enable_event_handler(&button_held_event_handler);
+/*
 	gpio_set_direction(GPIO_BUTTON, GPIO_MODE_INPUT);
 	gpio_set_intr_type(GPIO_BUTTON, GPIO_INTR_NEGEDGE);
 	ESP_ERROR_CHECK(gpio_isr_handler_add(GPIO_BUTTON, button_pressed, NULL));
+*/
 
+	power_path_init(&smbus_bus, &i2c_bus);
+	power_path_set_input_current_limit(1000);
+/*
 	for (int i = 0; i < ARRAY_SIZE(ina); i++) {
 		ESP_ERROR_CHECK(ina219_init(&ina[i], &smbus_bus, ina_address[i], 10, ina_names[i]));
 		ESP_ERROR_CHECK(ina219_set_shunt_voltage_range(&ina[i], INA219_PGA_CURRENT_GAIN_80MV));
@@ -172,7 +215,7 @@ void app_main() {
 		ESP_ERROR_CHECK(ina219_read_power_uw(&ina[i], &power_uw));
 		ESP_LOGI(TAG, "INA %d: %umV @ %ldmA (Ushunt: %lduV, %ldmW)", i, bus_voltage_mv, current_ua / 1000L, shunt_voltage_uv, power_uw / 1000L);
 	}
-
+*/
 	ESP_ERROR_CHECK(httpd_init(&httpd, "/webroot", 32));
 	website_init(&httpd);
 	prometheus_init(&prometheus);
@@ -190,6 +233,8 @@ void app_main() {
 	unsigned int pixel = 0;
 	unsigned int last_pixel = pixel;
 
+	display_render_loop();
+/*
 	while (1) {
 		ESP_LOGI(TAG, "Toggling GPIO %u", gpio_idx);
 		unsigned int gpio = toggle_gpios[gpio_idx++];
@@ -207,6 +252,7 @@ void app_main() {
 			charging_current_ma = 512;
 		}
 		charging_current_ma += 32;
+		charging_current_ma = 1000;
 		ESP_ERROR_CHECK(bq24715_set_charge_current(&bq24715, charging_current_ma));
 
 		unsigned int cell_voltage1, cell_voltage2;
@@ -262,12 +308,13 @@ void app_main() {
 		lm75_read_temperature_mdegc(&lm75[LM75_USB_OUT], &temp_usb_out_mdegc);
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-truncation"
-		snprintf(display_str, sizeof(display_str), "%02dC %02dC %02dC ", temp_charger_mdegc / 1000, temp_dc_out_mdegc / 1000, temp_usb_out_mdegc / 1000);
+		snprintf(display_str, sizeof(display_str), "%02ldC %02ldC %02ldC ", temp_charger_mdegc / 1000, temp_dc_out_mdegc / 1000, temp_usb_out_mdegc / 1000);
 #pragma GCC diagnostic pop
 		font_3x5_render_string(display_str, &fb, 9, 42);
 
 		ESP_ERROR_CHECK(ssd1306_oled_render_fb(&oled, &fb));
 		vTaskDelay(pdMS_TO_TICKS(10000));
+*/
 /*
 		for (int i = 0; i < 10; i++) {
 			ESP_ERROR_CHECK(ssd1306_oled_set_pixel(&oled, last_pixel % 64, last_pixel / 64, false));
@@ -278,10 +325,12 @@ void app_main() {
 			vTaskDelay(pdMS_TO_TICKS(100));
 		}
 */
+/*
 		if (do_shutdown) {
 			ESP_LOGI(TAG, "Button pressed! Shutting down battery pack...");
 			bq40z50_shutdown(&bq40z50);
 			do_shutdown = false;
 		}
 	}
+*/
 }

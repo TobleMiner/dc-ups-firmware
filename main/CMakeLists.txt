@@ -1,11 +1,20 @@
 set(SOURCE_FILES
+	battery_gauge.c
 	bq24715_charger.c
 	bq40z50_gauge.c
+	buttons.c
 	delay.c
+	display.c
+	display_bms.c
+	display_on_battery.c
+	display_power.c
+	display_screensaver.c
 	ethernet.c
+	event_bus.c
 	font_3x5.c
 	futil.c
 	gpio_hc595.c
+	gui.c
 	httpd.c
 	i2c_bus.c
 	ina219.c
@@ -20,6 +29,7 @@ set(SOURCE_FILES
 	prometheus_metrics.c
 	prometheus_metrics_battery.c
 	ring.c
+	scheduler.c
 	sensor.c
 	smbus.c
 	ssd1306_oled.c

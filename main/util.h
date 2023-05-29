@@ -30,8 +30,10 @@
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define CLAMP(x, min_, max_) MAX(MIN((x), (max_)), (min_))
 
 #define DIV_ROUND_UP(u, v) (((u) + ((v) - 1)) / (v))
+#define DIV_ROUND(u, v) (((u) + ((v) / 2)) / (v))
 
 #define BITSWAP_U8(x) \
 	((((x) & 0x80) >> 7) | \
@@ -70,3 +72,5 @@ void strntr(char* str, size_t len, char a, char b);
 
 #define hex_to_byte(hex) \
   ((hex_to_nibble((hex)[0]) << 4) | hex_to_nibble((hex)[1]))
+
+#define MS_TO_US(ms) ((ms) * 1000)

@@ -4,6 +4,8 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
+#include "util.h"
+
 #define CMD_CONFIGURATION	0x00
 #define CMD_SHUNT_VOLTAGE	0x01
 #define CMD_BUS_VOLTAGE		0x02
@@ -38,7 +40,7 @@ static esp_err_t read_sword(ina219_t *ina, unsigned int cmd, int *res) {
 	return err;
 }
 
-static esp_err_t update_bits(ina219_t *ina, unsigned int cmd, unsigned int shift, unsigned int mask, unsigned int val) {
+static esp_err_t update_bits_(ina219_t *ina, unsigned int cmd, unsigned int shift, unsigned int mask, unsigned int val) {
 	unsigned int old_value;
 	esp_err_t err = read_uword(ina, cmd, &old_value);
 	if (err) {
@@ -47,6 +49,16 @@ static esp_err_t update_bits(ina219_t *ina, unsigned int cmd, unsigned int shift
 	uint16_t new_value = old_value & ~(uint16_t)(mask << shift);
 	new_value |= val << shift;
 	return write_word(ina, cmd, new_value);
+}
+
+static esp_err_t update_bits(ina219_t *ina, unsigned int cmd, unsigned int shift, unsigned int mask, unsigned int val) {
+	esp_err_t err;
+
+	xSemaphoreTake(ina->lock, portMAX_DELAY);
+	err = update_bits_(ina, cmd, shift, mask, val);
+	xSemaphoreGive(ina->lock);
+
+	return err;
 }
 
 static unsigned int get_num_channels(sensor_t *sensor, sensor_measurement_type_t type) {
@@ -80,7 +92,7 @@ static esp_err_t measure(sensor_t *sensor, sensor_measurement_type_t type, unsig
 		if (err) {
 			return err;
 		}
-		*res = current_ua / 1000;
+		*res = DIV_ROUND(current_ua, 1000);
 		break;
 	}
 	case SENSOR_TYPE_POWER:{
@@ -89,7 +101,7 @@ static esp_err_t measure(sensor_t *sensor, sensor_measurement_type_t type, unsig
 		if (err) {
 			return err;
 		}
-		*res = power_uw / 1000;
+		*res = DIV_ROUND(power_uw, 1000);
 		break;
 	}
 	default:
@@ -109,6 +121,7 @@ esp_err_t ina219_init(ina219_t *ina, smbus_t *bus, unsigned int address, unsigne
 	ina->bus = bus;
 	ina->address = address;
 	ina->shunt_resistance_mohms = shunt_resistance_mohms;
+	ina->lock = xSemaphoreCreateMutexStatic(&ina->lock_buffer);
 
 	esp_err_t err = ina219_reset(ina);
 	if (err) {
@@ -174,8 +187,8 @@ esp_err_t ina219_read_current_ua(ina219_t *ina, long *current_ua) {
 	long shunt_voltage_uv;
 	esp_err_t err = ina219_read_shunt_voltage_uv(ina, &shunt_voltage_uv);
 	if (!err) {
-		*current_ua = (int32_t)shunt_voltage_uv * (int32_t)1000 /
-				(int32_t)ina->shunt_resistance_mohms;
+		*current_ua = DIV_ROUND((int32_t)shunt_voltage_uv * (int32_t)1000,
+				(int32_t)ina->shunt_resistance_mohms);
 	}
 	return err;
 }
@@ -193,7 +206,7 @@ esp_err_t ina219_read_power_uw(ina219_t *ina, long *power_uw) {
 		ESP_LOGE(TAG, "Failed to read current");
 		return err;
 	}
-	*power_uw = (int64_t)current_ua * (int64_t)voltage_mv / (int64_t)1000;
+	*power_uw = DIV_ROUND((int64_t)current_ua * (int64_t)voltage_mv, (int64_t)1000);
 	return ESP_OK;
 }
 

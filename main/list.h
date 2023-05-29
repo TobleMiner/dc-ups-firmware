@@ -27,6 +27,11 @@ struct list_head {
 #define LIST_FOR_EACH_SAFE(cursor, n, list) \
 	for((cursor) = (list)->next, (n) = (cursor)->next; (cursor) != (list); (cursor) = n, (n) = (cursor)->next)
 
+#define LIST_FOR_EACH_ENTRY_SAFE(cursor, n, head, member) \
+	for((cursor) = LIST_GET_ENTRY((head)->next, typeof(*(cursor)), member), (n) = (cursor)->member.next; \
+		&((cursor)->member) != (head); \
+		(cursor) = LIST_GET_ENTRY((n), typeof(*(cursor)), member), (n) = (cursor)->member.next)
+
 #define LIST_GET_ENTRY(list, type, member) \
 	container_of(list, type, member)
 

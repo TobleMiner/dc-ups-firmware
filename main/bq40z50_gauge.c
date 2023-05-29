@@ -1,5 +1,7 @@
 #include "bq40z50_gauge.h"
 
+#include <errno.h>
+
 #include <esp_log.h>
 
 #include "util.h"
@@ -15,6 +17,7 @@
 #define CMD_AVERAGE_CURRENT		0x0b
 #define CMD_STATE_OF_CHARGE		0x0d
 #define CMD_REMAINING_ENERGY		0x0f
+#define CMD_FULL_CHARGE_CAPACITY	0x10
 #define CMD_RUN_TIME_TO_EMPTY		0x11
 #define CMD_AVERAGE_TIME_TO_EMPTY	0x12
 #define CMD_CHARGING_CURRENT		0x14
@@ -136,7 +139,7 @@ static esp_err_t measure(sensor_t *sensor, sensor_measurement_type_t type, unsig
 		*res = current_ma;
 		break;
 	}
-	case SENSOR_TYPE_POWER:{
+	case SENSOR_TYPE_POWER: {
 		unsigned int voltage_mv;
 		esp_err_t err = bq40z50_get_battery_voltage_mv(gauge, &voltage_mv);
 		if (err) {
@@ -173,6 +176,37 @@ static const sensor_def_t sensor_def = {
 	.measure = measure,
 };
 
+static int bq40z50_get_param(battery_gauge_t *gauge, battery_param_t param, int32_t *retval) {
+	bq40z50_t *bq40 = gauge->priv;
+
+	switch (param) {
+	case BATTERY_VOLTAGE_MV:
+		return bq40z50_get_battery_voltage_mv(bq40, (unsigned int *)retval);
+	case BATTERY_VOLTAGE_CELL1_MV:
+		return bq40z50_get_cell_voltage_mv(bq40, BQ40Z50_CELL_1, (unsigned int *)retval);
+	case BATTERY_VOLTAGE_CELL2_MV:
+		return bq40z50_get_cell_voltage_mv(bq40, BQ40Z50_CELL_2, (unsigned int *)retval);
+	case BATTERY_SOC_PERCENT:
+		return bq40z50_get_state_of_charge_percent(bq40, (unsigned int *)retval);
+	case BATTERY_SOH_PERCENT:
+		return bq40z50_get_state_of_health_percent(bq40, (unsigned int *)retval);
+	case BATTERY_CURRENT_MA:
+		return bq40z50_get_current_ma(bq40, (int *)retval);
+	case BATTERY_TIME_TO_EMPTY_MIN:
+		return bq40z50_get_run_time_to_empty_min(bq40, (unsigned int *)retval);
+	case BATTERY_TEMPERATURE_MDEG_C:
+		return bq40z50_get_battery_temperature_mdegc(bq40, retval);
+	case BATTERY_FULL_CHARGE_CAPACITY_MAH:
+		return bq40z50_get_full_charge_capacity_mah(bq40, (unsigned int *)retval);
+	default:
+		return ENOTSUP;
+	}
+}
+
+static const battery_gauge_ops_t bq40z50_gauge_ops = {
+	.get_param = bq40z50_get_param,
+};
+
 esp_err_t bq40z50_init(bq40z50_t *gauge, smbus_t *bus, int address) {
 	if (address == -1) {
 		address = DEFAULT_SMBUS_ADDRESS;
@@ -193,6 +227,9 @@ esp_err_t bq40z50_init(bq40z50_t *gauge, smbus_t *bus, int address) {
 
 	sensor_init(&gauge->sensor, &sensor_def, "bq40z50");
 	sensor_add(&gauge->sensor);
+
+	gauge->gauge.priv = gauge;
+	gauge->gauge.ops = &bq40z50_gauge_ops;
 
 	return ESP_OK;
 }
@@ -227,6 +264,14 @@ esp_err_t bq40z50_get_state_of_charge_percent(bq40z50_t *gauge, unsigned int *re
 	return read_uword(gauge, CMD_STATE_OF_CHARGE, res);
 }
 
+esp_err_t bq40z50_get_state_of_health_percent(bq40z50_t *gauge, unsigned int *res) {
+	return read_uword(gauge, CMD_STATE_OF_HEALTH, res);
+}
+
+esp_err_t bq40z50_get_full_charge_capacity_mah(bq40z50_t *gauge, unsigned int *res) {
+	return read_uword(gauge, CMD_FULL_CHARGE_CAPACITY, res);
+}
+
 esp_err_t bq40z50_get_current_ma(bq40z50_t *gauge, int *res) {
 	return read_sword(gauge, CMD_CURRENT, res);
 }
@@ -243,3 +288,6 @@ esp_err_t bq40z50_get_charging_voltage_mv(bq40z50_t *gauge, unsigned int *res) {
 	return read_uword(gauge, CMD_CHARGING_VOLTAGE, res);
 }
 
+esp_err_t bq40z50_get_run_time_to_empty_min(bq40z50_t *gauge, unsigned int *res) {
+	return read_uword(gauge, CMD_RUN_TIME_TO_EMPTY, res);
+}

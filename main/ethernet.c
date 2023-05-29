@@ -57,13 +57,14 @@ esp_err_t ethernet_init(const ethernet_config_t *cfg) {
 
 	// Init MAC and PHY configs to default
 	eth_mac_config_t mac_config = ETH_MAC_DEFAULT_CONFIG();
+	eth_esp32_emac_config_t emac_config = ETH_ESP32_EMAC_DEFAULT_CONFIG();
 	eth_phy_config_t phy_config = ETH_PHY_DEFAULT_CONFIG();
 
 	phy_config.phy_addr = cfg->phy_address;
 	phy_config.reset_gpio_num = cfg->phy_reset_gpio;
-	mac_config.smi_mdc_gpio_num = cfg->mdc_gpio;
-	mac_config.smi_mdio_gpio_num = cfg->mdio_gpio;
-	esp_eth_mac_t *mac = esp_eth_mac_new_esp32(&mac_config);
+	emac_config.smi_mdc_gpio_num = cfg->mdc_gpio;
+	emac_config.smi_mdio_gpio_num = cfg->mdio_gpio;
+	esp_eth_mac_t *mac = esp_eth_mac_new_esp32(&emac_config, &mac_config);
 	esp_eth_phy_t *phy = esp_eth_phy_new_lan87xx(&phy_config);
 
 	esp_eth_config_t config = ETH_DEFAULT_CONFIG(mac, phy);

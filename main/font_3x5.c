@@ -1,6 +1,7 @@
 #include "font_3x5.h"
 
 #include <stdint.h>
+#include <string.h>
 
 #include "util.h"
 
@@ -20,14 +21,21 @@ static const uint16_t glyphs[] = {
 	0x6456, 0x4924, 0x3513, 0x001E, 
 };
 
-static void font_3x5_render_glyph(char glyph, fb_t *fb, unsigned int x, unsigned int y) {
+static uint16_t get_glyph_data(char glyph) {
 	uint16_t glyph_data = 0;
+
 	if (glyph >= GLYPH_BASE && glyph - GLYPH_BASE < ARRAY_SIZE(glyphs)) {
 		unsigned int glyph_index = glyph - GLYPH_BASE;
 		glyph_data = glyphs[glyph_index];
 	}
 
+	return glyph_data;
+}
+
+static void font_3x5_render_glyph(char glyph, fb_t *fb, unsigned int x, unsigned int y) {
+	uint16_t glyph_data = get_glyph_data(glyph);
 	unsigned int bit = 0;
+
 	for (unsigned int off_y = 0; off_y < 5; off_y++) {
 		for (unsigned int off_x = 0; off_x < 3; off_x++) {
 			fb_set_pixel(fb, x + off_x, y + off_y, !!(glyph_data & (1 << bit)));
@@ -40,5 +48,57 @@ void font_3x5_render_string(const char *str, fb_t *fb, unsigned int x, unsigned 
 	while (*str) {
 		font_3x5_render_glyph(*str++, fb, x, y);
 		x += 4;
+	}
+}
+
+void font_3x5_calculate_text_params(const char *str, font_text_params_t *params) {
+	unsigned int len = strlen(str) * 4;
+
+	if (len > 0) {
+		len--;
+	}
+
+	params->effective_size.x = len;
+	params->effective_size.y = 5;
+}
+
+void font_3x5_render_string2(const char *str, const font_text_params_t *params, const font_vec_t *source_offset, const font_fb_t *fb) {
+	font_vec_t pos = { 0, 0 };
+
+	while (*str) {
+		char c = *str++;
+		int dst_x = pos.x - source_offset->x;
+		int dst_y = pos.y - source_offset->y;
+		unsigned int offset_x = 0;
+		uint16_t glyph_data = get_glyph_data(c);
+
+		if (dst_x < 0) {
+			offset_x += -dst_x;
+			dst_x = 0;
+		}
+		if (dst_x < fb->size.x && dst_y < fb->size.y && offset_x < 3) {
+			unsigned int draw_width = MIN(3, fb->size.x - dst_x);
+			unsigned int draw_height = MIN(5, fb->size.y - dst_y);
+			unsigned int y = 0;
+
+			if (dst_y < 0) {
+				y = -dst_y;
+			}
+			for (; y < draw_height; y++) {
+				unsigned int x = offset_x;
+
+				for (; x < draw_width - offset_x; x++) {
+					unsigned int bit = y * 3 + x;
+
+					if (glyph_data & (1 << bit)) {
+						fb->pixels[(dst_y + y) * fb->stride + dst_x + x] = 0xff;
+					} else {
+						fb->pixels[(dst_y + y) * fb->stride + dst_x + x] = 0;
+					}
+				}
+			}
+		}
+
+		pos.x += 4;
 	}
 }

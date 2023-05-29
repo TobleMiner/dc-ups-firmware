@@ -1,5 +1,8 @@
 #pragma once
 
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
+
 #include <esp_err.h>
 
 #include "sensor.h"
@@ -10,6 +13,8 @@ typedef struct ina219 {
 	unsigned int address;
 	unsigned int shunt_resistance_mohms;
 	sensor_t sensor;
+	SemaphoreHandle_t lock;
+	StaticSemaphore_t lock_buffer;
 } ina219_t;
 
 typedef enum {
