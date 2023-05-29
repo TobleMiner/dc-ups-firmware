@@ -5,6 +5,8 @@
 
 typedef struct prometheus_battery_metrics {
 	prometheus_metric_t state_of_charge;
+	prometheus_metric_t state_of_health;
+	prometheus_metric_t full_charge_capacity;
 } prometheus_battery_metrics_t;
 
 void prometheus_battery_metrics_init(prometheus_battery_metrics_t *metrics, bq40z50_t *gauge);
