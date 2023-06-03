@@ -173,10 +173,10 @@ static void power_path_group_add_ina_data_(power_path_group_data_t *data, const 
 static void power_path_group_set_ina_data(power_path_group_data_t *data, const ina_state_t *ina, const ina_state_t *ina2) {
 	power_path_group_data_t data_tmp = { 0 };
 
-	power_path_group_add_ina_data_(&data_tmp, ina);
 	if (ina2) {
 		power_path_group_add_ina_data_(&data_tmp, ina2);
 	}
+	power_path_group_add_ina_data_(&data_tmp, ina);
 
 	*data = data_tmp;
 }
