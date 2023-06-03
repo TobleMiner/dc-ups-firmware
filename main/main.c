@@ -194,9 +194,13 @@ void app_main() {
 	ESP_ERROR_CHECK(ssd1306_oled_init(&oled, &i2c_bus, 0x3c, GPIO_OLED_RESET));
 	fb_init(&fb);
 */
+	power_path_early_init(&smbus_bus, &i2c_bus);
+	vTaskDelay(pdMS_TO_TICKS(5000));
 
 	ESP_ERROR_CHECK(bq40z50_init(&bq40z50, &smbus_bus, -1));
 	battery_gauge_init(&bq40z50.gauge);
+
+	power_path_init(&smbus_bus, &i2c_bus);
 
 	buttons_register_single_button_event_handler(&button_held_event_handler, &button_held_cfg);
 	buttons_enable_event_handler(&button_held_event_handler);
@@ -206,7 +210,6 @@ void app_main() {
 	ESP_ERROR_CHECK(gpio_isr_handler_add(GPIO_BUTTON, button_pressed, NULL));
 */
 
-	power_path_init(&smbus_bus, &i2c_bus);
 /*
 	for (int i = 0; i < ARRAY_SIZE(ina); i++) {
 		ESP_ERROR_CHECK(ina219_init(&ina[i], &smbus_bus, ina_address[i], 10, ina_names[i]));

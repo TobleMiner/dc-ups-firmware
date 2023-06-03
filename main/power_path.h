@@ -20,6 +20,7 @@ typedef struct power_path_group_data {
 	int32_t temperature_mdegc;
 } power_path_group_data_t;
 
+void power_path_early_init(smbus_t *smbus, i2c_bus_t *i2c_bus);
 void power_path_init(smbus_t *smbus, i2c_bus_t *i2c_bus);
 void power_path_set_input_current_limit(unsigned int current_ma);
 unsigned int power_path_get_input_current_limit_ma(void);

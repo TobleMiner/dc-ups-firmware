@@ -22,7 +22,7 @@
 
 #define BATTERY_CHARGE_VOLTAGE_MV	8400
 #define BATTERY_NOMINAL_VOLTAGE_MV	7400
-#define DEFAULT_CHARGE_CURRENT_MA	256
+#define DEFAULT_CHARGE_CURRENT_MA	128
 #define MAX_CHARGE_CURRENT_MA		1024
 #define MAX_INPUT_CURRENT_MA		4000
 
@@ -232,6 +232,12 @@ static void power_path_set_input_current_limit_(unsigned int current_ma) {
 	input_current_limit_ma = current_ma;
 }
 
+void power_path_early_init(smbus_t *smbus, i2c_bus_t *i2c_bus) {
+	ESP_ERROR_CHECK(bq24715_init(&bq24715, smbus));
+	ESP_ERROR_CHECK(bq24715_set_max_charge_voltage(&bq24715, BATTERY_CHARGE_VOLTAGE_MV));
+	ESP_ERROR_CHECK(bq24715_set_charge_current(&bq24715, DEFAULT_CHARGE_CURRENT_MA));
+}
+
 void power_path_init(smbus_t *smbus, i2c_bus_t *i2c_bus) {
 	int i;
 
@@ -246,10 +252,6 @@ void power_path_init(smbus_t *smbus, i2c_bus_t *i2c_bus) {
 	for (i = 0; i < ARRAY_SIZE(lm75_defs); i++) {
 		lm75_init(&lm75s[i].lm75, i2c_bus, lm75_defs[i].address, lm75_defs[i].name);
 	}
-
-	ESP_ERROR_CHECK(bq24715_init(&bq24715, smbus));
-	ESP_ERROR_CHECK(bq24715_set_max_charge_voltage(&bq24715, BATTERY_CHARGE_VOLTAGE_MV));
-	ESP_ERROR_CHECK(bq24715_set_charge_current(&bq24715, DEFAULT_CHARGE_CURRENT_MA));
 
 	power_path_set_input_current_limit_(settings_get_input_current_limit_ma());
 
