@@ -79,7 +79,7 @@ static const display_screen_t screensaver_screen = {
 static void setup_label(gui_label_t *label, const char *text, unsigned int pos_x, unsigned int pos_y) {
 	gui_label_init(label, text);
 	gui_label_set_text_alignment(label, GUI_TEXT_ALIGN_CENTER);
-	gui_element_set_size(&label->element, 20, 5);
+	gui_element_set_size(&label->element, 24, 5);
 	gui_element_set_position(&label->element, pos_x, pos_y);
 	gui_element_add_child(&screensaver.element, &label->element);
 }
@@ -93,7 +93,7 @@ const display_screen_t *display_screensaver_init(gui_t *gui_root) {
 	gui_element_add_child(&gui->container.element, &screensaver.element);
 
 	setup_label(&screensaver_soc_label, "???%", 0, 0);
-	setup_label(&screensaver_power_label, "?.??W", 0, 7);
+	setup_label(&screensaver_power_label, "??.??W", 0, 7);
 	setup_label(&runtime_label.label, "??:??", 0, 14);
 
 	scheduler_task_init(&screensaver_move_task);
