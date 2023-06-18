@@ -1,6 +1,7 @@
 set(SOURCE_FILES
 	api.c
 	battery_gauge.c
+	battery_protection.c
 	bq24715_charger.c
 	bq40z50_gauge.c
 	buttons.c

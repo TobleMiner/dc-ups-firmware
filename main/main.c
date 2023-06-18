@@ -7,6 +7,7 @@
 #include <freertos/FreeRTOS.h>
 
 #include "api.h"
+#include "battery_protection.h"
 #include "bq40z50_gauge.h"
 #include "buttons.h"
 #include "display.h"
@@ -201,6 +202,8 @@ void app_main() {
 	battery_gauge_init(&bq40z50.gauge);
 
 	power_path_init(&smbus_bus, &i2c_bus);
+
+	battery_protection_init(&bq40z50);
 
 	buttons_register_single_button_event_handler(&button_held_event_handler, &button_held_cfg);
 	buttons_enable_event_handler(&button_held_event_handler);
