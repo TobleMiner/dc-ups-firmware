@@ -51,7 +51,7 @@ static void update_ui(void) {
 			 "LINK UP (%s)", speed);
 		gui_label_set_text(&link_status_label.label, link_status_label.text);
 	} else {
-		gui_label_set_text(&link_status_label.label, "LINK DONW");
+		gui_label_set_text(&link_status_label.label, "LINK DOWN");
 	}
 	gui_unlock(gui);
 }
