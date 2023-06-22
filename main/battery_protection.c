@@ -4,7 +4,7 @@
 #include "power_path.h"
 #include "scheduler.h"
 
-#define MIN_CELL_VOLTAGE_MV 2900
+#define MIN_CELL_VOLTAGE_MV 2800
 #define UNDERVOLTAGE_SHUTDOWN_SECONDS 10
 
 static bq40z50_t *gauge;
