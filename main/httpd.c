@@ -20,7 +20,14 @@ esp_err_t httpd_response_write(struct httpd_request_ctx* ctx, const char* buff, 
 }
 
 esp_err_t httpd_response_write_string(struct httpd_request_ctx* ctx, const char* str) {
-  return httpd_response_write(ctx, str, strlen(str));
+  if (str) {
+    size_t len = strlen(str);
+    if (len) {
+      return httpd_response_write(ctx, str, len);
+    }
+    return ESP_OK;
+  }
+  return ESP_ERR_INVALID_ARG;
 }
 
 esp_err_t httpd_send_error_msg(struct httpd_request_ctx* ctx, const char* status, const char* msg) {
