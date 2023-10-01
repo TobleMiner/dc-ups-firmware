@@ -47,5 +47,6 @@ set(SOURCE_FILES
 idf_component_register(SRCS ${SOURCE_FILES}
                        INCLUDE_DIRS ".")
 
-execute_process(COMMAND git describe --always --dirty OUTPUT_VARIABLE ups_app_version)
+execute_process(COMMAND git describe --always --dirty OUTPUT_VARIABLE ups_app_version_)
+string(STRIP ${ups_app_version_} ups_app_version)
 add_compile_definitions(UPS_APP_VERSION=${ups_app_version})
