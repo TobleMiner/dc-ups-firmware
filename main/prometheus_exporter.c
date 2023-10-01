@@ -29,8 +29,8 @@ static void handle_labels(const prometheus_metric_value_t *value, prometheus_met
 		}
 	}
 	for (unsigned int i = 0; i < num_dynamic_labels; i++) {
-		char name[PROMETHEUS_LABEL_MAX_LEN];
-		char label[PROMETHEUS_LABEL_MAX_LEN];
+		char name[PROMETHEUS_LABEL_MAX_LEN] = { 0 };
+		char label[PROMETHEUS_LABEL_MAX_LEN] = { 0 };
 
 		value->get_label(value, metric, i, name, label);
 		httpd_response_write_string(ctx, name);
@@ -51,7 +51,7 @@ static void handle_value(const prometheus_metric_value_t *value, prometheus_metr
 	if (value->num_labels || value->get_num_labels) {
 		handle_labels(value, metric, ctx);
 	}
-	char value_str[PROMETHEUS_VALUE_MAX_LEN];
+	char value_str[PROMETHEUS_VALUE_MAX_LEN] = { 0 };
 	value->get_value(value, metric, value_str);
 	httpd_response_write_string(ctx, value_str);
 	httpd_response_write_string(ctx, "\n");
